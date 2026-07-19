@@ -304,7 +304,6 @@ export default function CustomerUpload() {
   const [verifyLoadingMap, setVerifyLoadingMap] = useState({});
   const [expandedJobs, setExpandedJobs] = useState({});
   const [showOlderUploads, setShowOlderUploads] = useState(false);
-  const [showProcessedHistory, setShowProcessedHistory] = useState(false);
   const [jobProgressMap, setJobProgressMap] = useState({});
   const [isHydrated, setIsHydrated] = useState(false);
   const [activeScreen, setActiveScreen] = useState("upload");
@@ -696,15 +695,22 @@ export default function CustomerUpload() {
     }
   };
 
+  const terminalJobStatuses = new Set(["printed", "rejected", "print_failed"]);
   const completedUploads = uploads.filter((item) => item.result);
-  const currentUpload = uploads[0] || null;
-  const olderUploads = uploads.slice(1);
+  const activeUploadRows = uploads.filter((item) => !item.result);
+  const currentUpload = activeUploadRows[0] || null;
+  const olderUploads = activeUploadRows.slice(1);
   const pendingPaymentUploads = completedUploads.filter((item) => item.result?.job?.status === "payment_pending");
-  const processedUploads = completedUploads.filter((item) => item.result?.job?.status !== "payment_pending");
-  const latestProcessedUpload = processedUploads[0] || null;
-  const olderProcessedUploads = processedUploads.slice(1);
+  const activePrintStatusUploads = completedUploads.filter((item) => {
+    const status = String(item.result?.job?.status || "").toLowerCase();
+    return status && status !== "payment_pending" && !terminalJobStatuses.has(status);
+  });
+  const historyUploads = completedUploads.filter((item) => {
+    const status = String(item.result?.job?.status || "").toLowerCase();
+    return terminalJobStatuses.has(status);
+  });
   const historyRows = useMemo(
-    () => completedUploads
+    () => historyUploads
       .map((item) => {
         const job = item?.result?.job || {};
         const totalPages = Number(job.page_count || 1);
@@ -734,7 +740,7 @@ export default function CustomerUpload() {
       })
       .filter((row) => row.id > 0)
       .sort((a, b) => Date.parse(b.updatedAt || 0) - Date.parse(a.updatedAt || 0)),
-    [completedUploads, jobProgressMap]
+    [historyUploads, jobProgressMap]
   );
   const historySummary = useMemo(() => historyRows.reduce((acc, row) => {
     acc.totalJobs += 1;
@@ -759,10 +765,7 @@ export default function CustomerUpload() {
     colorJobs: 0,
     totalAmount: 0
   }), [historyRows]);
-  const openJobsCount = uploads.filter((item) => {
-    const status = String(item?.result?.job?.status || item?.status || "").toLowerCase();
-    return status && !["printed", "rejected", "print_failed"].includes(status);
-  }).length;
+  const openJobsCount = activeUploadRows.length + pendingPaymentUploads.length + activePrintStatusUploads.length;
   const screenCountMap = {
     upload: 0,
     status: openJobsCount,
@@ -854,7 +857,7 @@ export default function CustomerUpload() {
 
       {activeScreen === "status" && (
       <>
-      {!uploads.length && (
+      {!openJobsCount && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-3xl border border-ink/15 bg-white p-6 text-center shadow-xl"
         >
@@ -870,7 +873,7 @@ export default function CustomerUpload() {
         </motion.section>
       )}
 
-      {!!uploads.length && (
+      {!!activeUploadRows.length && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-3xl border border-ink/15 bg-white/80 p-4 shadow-xl sm:p-6"
         >
@@ -924,7 +927,7 @@ export default function CustomerUpload() {
           </div>
 
           <div className="mt-4 hidden space-y-3 md:block">
-            {uploads.map((item) => (
+            {activeUploadRows.map((item) => (
               <div key={`desktop_${item.localId}`} className="rounded-2xl border border-ink/10 bg-paper/70 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="max-w-[70%] truncate font-medium text-ink">{item.fileName}</p>
@@ -948,7 +951,7 @@ export default function CustomerUpload() {
         </motion.section>
       )}
 
-      {!!completedUploads.length && (
+      {!!(pendingPaymentUploads.length || activePrintStatusUploads.length) && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="mt-6 rounded-3xl border border-ink/15 bg-white/80 p-4 shadow-xl sm:p-6"
         >
@@ -1011,67 +1014,28 @@ export default function CustomerUpload() {
             </div>
           )}
 
-          {!!processedUploads.length && (
+          {!!activePrintStatusUploads.length && (
             <div className="mt-6 space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-ink/65">Processed Jobs</h3>
-                {!!olderProcessedUploads.length && (
-                  <button
-                    type="button"
-                    onClick={() => setShowProcessedHistory((prev) => !prev)}
-                    className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-xs font-semibold text-ink"
-                  >
-                    {showProcessedHistory ? "Hide older" : `Show older (${olderProcessedUploads.length})`}
-                  </button>
-                )}
-              </div>
-
-              {latestProcessedUpload && (
-                <article key={latestProcessedUpload.localId} className="rounded-2xl border border-ink/10 bg-paper/70 p-4">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-ink/65">Current Print Jobs</h3>
+              {activePrintStatusUploads.map((item) => (
+                <article key={item.localId} className="rounded-2xl border border-ink/10 bg-paper/70 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-ink">{latestProcessedUpload.fileName}</p>
-                      <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(latestProcessedUpload.result.job.status)}`}>{statusBadgeLabel(latestProcessedUpload.result.job.status)}</span>
+                      <p className="truncate text-sm font-semibold text-ink">{item.fileName}</p>
+                      <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(item.result.job.status)}`}>{statusBadgeLabel(item.result.job.status)}</span>
                     </div>
                   </div>
                   <div className="mt-3 rounded-2xl bg-ink px-4 py-4 text-paper">
                     <p className="text-xs uppercase tracking-[0.2em] text-paper/70">Queue Token</p>
-                    <p className="mt-1 font-display text-3xl font-bold">{formatQueueTokenDisplay(latestProcessedUpload.result.job.queue_token, latestProcessedUpload.result.job.id)}</p>
+                    <p className="mt-1 font-display text-3xl font-bold">{formatQueueTokenDisplay(item.result.job.queue_token, item.result.job.id)}</p>
                   </div>
-                  <p className="mt-4 text-ink/75">Job #{latestProcessedUpload.result.job.id} · {latestProcessedUpload.result.job.page_count} pages · Rs {latestProcessedUpload.result.payment.amount}</p>
+                  <p className="mt-4 text-ink/75">Job #{item.result.job.id} · {item.result.job.page_count} pages · Rs {item.result.payment.amount}</p>
                   <JobProgressPanel
-                    progressPayload={jobProgressMap[latestProcessedUpload.localId]}
-                    fallbackStatus={latestProcessedUpload.result.job.status}
+                    progressPayload={jobProgressMap[item.localId]}
+                    fallbackStatus={item.result.job.status}
                   />
                 </article>
-              )}
-
-              {showProcessedHistory && !!olderProcessedUploads.length && (
-                <div className="space-y-3">
-                  {olderProcessedUploads.map((item) => (
-                    <article key={item.localId} className="rounded-2xl border border-ink/10 bg-white p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-ink">{item.fileName}</p>
-                        <div className="flex items-center gap-2">
-                          <p className={`rounded-full px-2 py-1 text-xs font-medium ${statusBadgeClass(item.result?.job?.status)}`}>{statusBadgeLabel(item.result?.job?.status)}</p>
-                          <button type="button" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-xs font-semibold text-ink" onClick={() => toggleJobExpanded(item.localId)}>
-                            {isJobExpanded(item.localId) ? "Collapse" : "Expand"}
-                          </button>
-                        </div>
-                      </div>
-                      {isJobExpanded(item.localId) && (
-                        <>
-                          <p className="mt-2 text-xs text-ink/70">Job #{item.result?.job?.id} • Token {formatQueueTokenDisplay(item.result?.job?.queue_token, item.result?.job?.id)}</p>
-                          <JobProgressPanel
-                            progressPayload={jobProgressMap[item.localId]}
-                            fallbackStatus={item.result?.job?.status}
-                          />
-                        </>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              )}
+              ))}
             </div>
           )}
         </motion.section>
@@ -1141,6 +1105,19 @@ export default function CustomerUpload() {
                 </div>
                 <p className="mt-2 text-sm font-semibold text-ink">Rs {row.amount}</p>
                 <p className="mt-1 text-[11px] text-ink/55">{row.updatedAt ? new Date(row.updatedAt).toLocaleString() : "-"}</p>
+                <button
+                  type="button"
+                  onClick={() => toggleJobExpanded(row.localId)}
+                  className="mt-3 w-full rounded-lg border border-ink/20 bg-paper px-3 py-2 text-xs font-semibold text-ink"
+                >
+                  {isJobExpanded(row.localId) ? "Hide details" : "Show details"}
+                </button>
+                {isJobExpanded(row.localId) && (
+                  <JobProgressPanel
+                    progressPayload={jobProgressMap[row.localId]}
+                    fallbackStatus={row.status}
+                  />
+                )}
               </article>
             ))}
           </div>
@@ -1158,23 +1135,45 @@ export default function CustomerUpload() {
                   <th className="px-2 py-2">Amount</th>
                   <th className="px-2 py-2">Status</th>
                   <th className="px-2 py-2">Time</th>
+                  <th className="px-2 py-2">Details</th>
                 </tr>
               </thead>
               <tbody>
                 {historyRows.map((row) => (
-                  <tr key={`desktop_${row.localId}`} className="border-b border-ink/5">
-                    <td className="px-2 py-2 font-mono">{row.token}</td>
-                    <td className="px-2 py-2">{row.fileName}</td>
-                    <td className="px-2 py-2">{row.colorMode.toUpperCase()}</td>
-                    <td className="px-2 py-2">{row.printedPages > 0 ? row.printedPages : row.expectedPages}</td>
-                    <td className="px-2 py-2">{row.copies}</td>
-                    <td className="px-2 py-2">Rs {row.unitPrice}</td>
-                    <td className="px-2 py-2 font-semibold">Rs {row.amount}</td>
-                    <td className="px-2 py-2">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(row.status)}`}>{statusBadgeLabel(row.status)}</span>
-                    </td>
-                    <td className="px-2 py-2">{row.updatedAt ? new Date(row.updatedAt).toLocaleString() : "-"}</td>
-                  </tr>
+                  <React.Fragment key={`desktop_${row.localId}`}>
+                    <tr className="border-b border-ink/5">
+                      <td className="px-2 py-2 font-mono">{row.token}</td>
+                      <td className="px-2 py-2">{row.fileName}</td>
+                      <td className="px-2 py-2">{row.colorMode.toUpperCase()}</td>
+                      <td className="px-2 py-2">{row.printedPages > 0 ? row.printedPages : row.expectedPages}</td>
+                      <td className="px-2 py-2">{row.copies}</td>
+                      <td className="px-2 py-2">Rs {row.unitPrice}</td>
+                      <td className="px-2 py-2 font-semibold">Rs {row.amount}</td>
+                      <td className="px-2 py-2">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(row.status)}`}>{statusBadgeLabel(row.status)}</span>
+                      </td>
+                      <td className="px-2 py-2">{row.updatedAt ? new Date(row.updatedAt).toLocaleString() : "-"}</td>
+                      <td className="px-2 py-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleJobExpanded(row.localId)}
+                          className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-xs font-semibold text-ink"
+                        >
+                          {isJobExpanded(row.localId) ? "Hide" : "Show"}
+                        </button>
+                      </td>
+                    </tr>
+                    {isJobExpanded(row.localId) && (
+                      <tr className="border-b border-ink/5">
+                        <td className="px-2 py-2" colSpan={10}>
+                          <JobProgressPanel
+                            progressPayload={jobProgressMap[row.localId]}
+                            fallbackStatus={row.status}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
