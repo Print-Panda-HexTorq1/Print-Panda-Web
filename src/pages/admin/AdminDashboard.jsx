@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
@@ -19,6 +19,29 @@ function formatQueueTokenDisplay(queueToken, jobId) {
 
 function uploadUrl(userUid) {
   return `${WEB_BASE}/u/${userUid}`;
+}
+
+function formatAmount(value) {
+  return `Rs ${Number(value || 0)}`;
+}
+
+function SummaryTiles({ summary, compact = false }) {
+  const metrics = [
+    { label: "Jobs", value: summary?.totalJobs || 0 },
+    { label: "Printed", value: summary?.printedJobs || 0 },
+    { label: "Pending", value: summary?.pendingJobs || 0 },
+    { label: "Revenue", value: formatAmount(summary?.revenuePrinted || 0) }
+  ];
+  return (
+    <div className={`grid gap-2 ${compact ? "grid-cols-2 sm:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
+      {metrics.map((metric) => (
+        <div key={metric.label} className="rounded-xl border border-ink/10 bg-white px-3 py-2">
+          <p className="text-[11px] text-ink/50">{metric.label}</p>
+          <p className={`${compact ? "text-lg" : "text-2xl"} font-bold text-ink`}>{metric.value}</p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ── Modal wrapper ─────────────────────────────────────────────────────────────
@@ -236,7 +259,7 @@ function QrModal({ client, user, onClose }) {
 }
 
 // ── Client Card ───────────────────────────────────────────────────────────────
-function ClientCard({ client, onEdit, onDelete, onShowUserQr }) {
+function ClientCard({ client, analyticsSummary, userSummaries, onEdit, onDelete, onShowUserQr }) {
   const [expanded, setExpanded] = useState(false);
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -284,6 +307,9 @@ function ClientCard({ client, onEdit, onDelete, onShowUserQr }) {
           </button>
         </div>
       </div>
+      <div className="border-t border-ink/5 bg-ink/[0.02] px-4 py-3">
+        <SummaryTiles summary={analyticsSummary} compact />
+      </div>
 
       <AnimatePresence>
         {expanded && (
@@ -293,7 +319,36 @@ function ClientCard({ client, onEdit, onDelete, onShowUserQr }) {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden border-t border-ink/10"
           >
-            <div className="p-4">
+            <div className="space-y-4 p-4">
+              <div>
+                <p className="mb-2 text-sm font-semibold text-ink">User Analytics</p>
+                {!userSummaries.length && (
+                  <div className="rounded-xl bg-ink/5 px-3 py-3 text-xs text-ink/50">
+                    No user activity in the selected time filter.
+                  </div>
+                )}
+                {!!userSummaries.length && (
+                  <div className="space-y-2">
+                    {userSummaries.map((summary) => (
+                      <div key={`${summary.userId || "unassigned"}-${client.id}`} className="rounded-xl border border-ink/10 bg-white p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-ink">{summary.username}</p>
+                            <p className="text-xs text-ink/50">User ID: {summary.userId || "Unassigned"}</p>
+                          </div>
+                          <p className="text-xs font-semibold text-ink/65">
+                            B/W {summary.bwJobs || 0} • Color {summary.colorJobs || 0} • Failed {summary.failedJobs || 0}
+                          </p>
+                        </div>
+                        <div className="mt-2">
+                          <SummaryTiles summary={summary} compact />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-semibold text-ink">Desktop Users</p>
                 <button
@@ -369,6 +424,7 @@ export default function AdminDashboard() {
   const [clients, setClients] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [analyticsRange, setAnalyticsRange] = useState("7d");
+  const [analyticsDate, setAnalyticsDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editClient, setEditClient] = useState(null);
@@ -380,7 +436,7 @@ export default function AdminDashboard() {
     try {
       const [data, analyticsData] = await Promise.all([
         adminApi.listClients(),
-        adminApi.getAnalytics(null, analyticsRange)
+        adminApi.getAnalytics(null, analyticsRange, { date: analyticsDate })
       ]);
       setClients(data);
       setAnalytics(analyticsData);
@@ -393,7 +449,7 @@ export default function AdminDashboard() {
       }
     }
     setLoading(false);
-  }, [navigate, analyticsRange]);
+  }, [navigate, analyticsRange, analyticsDate]);
 
   useEffect(() => { loadClients(); }, [loadClients]);
 
@@ -408,6 +464,41 @@ export default function AdminDashboard() {
     if (!confirm(`Delete "${client.shop_name}" and all its users? This cannot be undone.`)) return;
     await adminApi.deleteClient(client.id);
     setClients((prev) => prev.filter((c) => c.id !== client.id));
+  };
+
+  const shopSummaryByClientId = useMemo(() => {
+    const map = new Map();
+    (analytics?.shopSummaries || []).forEach((summary) => {
+      if (summary.clientId != null) {
+        map.set(Number(summary.clientId), summary);
+      }
+    });
+    return map;
+  }, [analytics]);
+
+  const userSummariesByClientId = useMemo(() => {
+    const map = new Map();
+    (analytics?.userSummaries || []).forEach((summary) => {
+      const clientId = Number(summary.clientId || 0);
+      if (!clientId) {
+        return;
+      }
+      const current = map.get(clientId) || [];
+      current.push(summary);
+      map.set(clientId, current);
+    });
+    return map;
+  }, [analytics]);
+
+  const emptySummary = {
+    totalJobs: 0,
+    printedJobs: 0,
+    failedJobs: 0,
+    pendingJobs: 0,
+    totalPages: 0,
+    revenuePrinted: 0,
+    colorJobs: 0,
+    bwJobs: 0
   };
 
   return (
@@ -443,36 +534,73 @@ export default function AdminDashboard() {
         {analytics && (
           <section className="mb-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-display text-lg font-semibold text-ink">Analytics Window</h3>
-              <select
-                value={analyticsRange}
-                onChange={(e) => setAnalyticsRange(e.target.value)}
-                className="rounded-lg border border-ink/20 bg-white px-3 py-2 text-sm text-ink"
-              >
-                <option value="today">Today</option>
-                <option value="7d">Last 7 days</option>
-                <option value="30d">Last 30 days</option>
-                <option value="all">All time</option>
-              </select>
+              <div>
+                <h3 className="font-display text-lg font-semibold text-ink">Analytics Window</h3>
+                <p className="text-xs text-ink/55">
+                  {analyticsDate ? `Showing only ${analyticsDate}` : "Showing the selected time range"}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={analyticsRange}
+                  onChange={(e) => setAnalyticsRange(e.target.value)}
+                  className="rounded-lg border border-ink/20 bg-white px-3 py-2 text-sm text-ink"
+                >
+                  <option value="today">Today</option>
+                  <option value="7d">Last 7 days</option>
+                  <option value="30d">Last 30 days</option>
+                  <option value="all">All time</option>
+                </select>
+                <input
+                  type="date"
+                  value={analyticsDate}
+                  onChange={(e) => setAnalyticsDate(e.target.value)}
+                  className="rounded-lg border border-ink/20 bg-white px-3 py-2 text-sm text-ink"
+                />
+                {analyticsDate && (
+                  <button
+                    type="button"
+                    onClick={() => setAnalyticsDate("")}
+                    className="rounded-lg border border-ink/20 bg-white px-3 py-2 text-sm font-medium text-ink"
+                  >
+                    Clear Date
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryTiles summary={analytics} />
+
+            {!!(analytics.dailySummaries || []).length && (
               <div className="rounded-2xl border border-ink/10 bg-white p-4">
-                <p className="text-xs text-ink/55">Total Jobs</p>
-                <p className="mt-1 text-2xl font-bold text-ink">{analytics.totalJobs}</p>
+                <h3 className="font-display text-lg font-semibold text-ink">Daily Summary</h3>
+                <div className="mt-3 overflow-auto">
+                  <table className="min-w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-ink/10 text-ink/60">
+                        <th className="px-2 py-2">Date</th>
+                        <th className="px-2 py-2">Jobs</th>
+                        <th className="px-2 py-2">Printed</th>
+                        <th className="px-2 py-2">Pending</th>
+                        <th className="px-2 py-2">Failed</th>
+                        <th className="px-2 py-2">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(analytics.dailySummaries || []).map((row) => (
+                        <tr key={row.day} className="border-b border-ink/5">
+                          <td className="px-2 py-2 font-mono">{row.day}</td>
+                          <td className="px-2 py-2">{row.totalJobs}</td>
+                          <td className="px-2 py-2">{row.printedJobs}</td>
+                          <td className="px-2 py-2">{row.pendingJobs}</td>
+                          <td className="px-2 py-2">{row.failedJobs}</td>
+                          <td className="px-2 py-2 font-semibold">{formatAmount(row.revenuePrinted)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <div className="rounded-2xl border border-ink/10 bg-white p-4">
-                <p className="text-xs text-ink/55">Printed</p>
-                <p className="mt-1 text-2xl font-bold text-ink">{analytics.printedJobs}</p>
-              </div>
-              <div className="rounded-2xl border border-ink/10 bg-white p-4">
-                <p className="text-xs text-ink/55">Failed</p>
-                <p className="mt-1 text-2xl font-bold text-ink">{analytics.failedJobs}</p>
-              </div>
-              <div className="rounded-2xl border border-ink/10 bg-white p-4">
-                <p className="text-xs text-ink/55">Revenue (Printed)</p>
-                <p className="mt-1 text-2xl font-bold text-ink">Rs {analytics.revenuePrinted}</p>
-              </div>
-            </div>
+            )}
 
             <div className="rounded-2xl border border-ink/10 bg-white p-4">
               <h3 className="font-display text-lg font-semibold text-ink">Recent Print Logs</h3>
@@ -528,6 +656,8 @@ export default function AdminDashboard() {
             <ClientCard
               key={client.id}
               client={client}
+              analyticsSummary={shopSummaryByClientId.get(Number(client.id)) || emptySummary}
+              userSummaries={userSummariesByClientId.get(Number(client.id)) || []}
               onEdit={setEditClient}
               onDelete={handleDelete}
               onShowUserQr={setQrTarget}

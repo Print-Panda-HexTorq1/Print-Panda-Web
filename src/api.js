@@ -166,10 +166,12 @@ export const adminApi = {
   changeUserPassword: (userId, password) =>
     adminFetch(`/api/admin/users/${userId}/password`, { method: "PATCH", body: JSON.stringify({ password }) }),
 
-  getAnalytics: (clientId = null, range = "all") => {
+  getAnalytics: (clientId = null, range = "all", filters = {}) => {
     const params = new URLSearchParams();
     if (clientId) params.set("clientId", String(clientId));
     if (range) params.set("range", String(range));
+    if (filters?.userId) params.set("userId", String(filters.userId));
+    if (filters?.date) params.set("date", String(filters.date));
     const suffix = params.toString() ? `?${params.toString()}` : "";
     return adminFetch(`/api/admin/analytics${suffix}`);
   }
