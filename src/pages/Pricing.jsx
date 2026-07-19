@@ -175,10 +175,10 @@ function PlanCard({ plan, yearly, index }) {
       </div>
 
       <Link
-        to="/admin/login?signup=1"
+        to="/contact"
         className={`mt-5 rounded-xl py-2.5 text-center text-sm font-semibold transition-all ${plan.btnClass}`}
       >
-        Get Started
+        Talk to Us
       </Link>
 
       <ul className="mt-6 space-y-2.5">
@@ -210,8 +210,8 @@ export default function Pricing() {
           </Link>
           <div className="flex items-center gap-4">
             <Link to="/contact" className="text-sm text-ink/60 hover:text-ink transition-colors hidden md:block">Contact</Link>
-            <Link to="/admin/login?signup=1" className="rounded-xl bg-mint px-4 py-2 text-sm font-semibold text-ink hover:opacity-90 transition-opacity">
-              Get Started
+            <Link to="/contact" className="rounded-xl bg-mint px-4 py-2 text-sm font-semibold text-ink hover:opacity-90 transition-opacity">
+              Talk to Us
             </Link>
           </div>
         </div>
@@ -343,8 +343,8 @@ export default function Pricing() {
             <h2 className="font-display text-3xl font-bold text-paper">Ready to modernise your print shop?</h2>
             <p className="mt-3 text-paper/50 text-sm max-w-md mx-auto">Get started in minutes. No hardware needed — just your existing printer and a phone with UPI.</p>
             <div className="mt-7 flex flex-wrap gap-4 justify-center">
-              <Link to="/admin/login?signup=1" className="rounded-xl bg-mint px-7 py-3.5 font-semibold text-ink hover:opacity-90 transition-opacity shadow-xl shadow-mint/20">
-                Create Free Account
+              <Link to="/contact" className="rounded-xl bg-mint px-7 py-3.5 font-semibold text-ink hover:opacity-90 transition-opacity shadow-xl shadow-mint/20">
+                Talk to Us
               </Link>
               <Link to="/contact" className="rounded-xl border border-paper/20 px-7 py-3.5 font-medium text-paper/75 hover:bg-paper/10 transition-colors">
                 Talk to Us →

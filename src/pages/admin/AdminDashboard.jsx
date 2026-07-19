@@ -8,7 +8,6 @@ const WEB_BASE = (import.meta.env.VITE_WEB_BASE || "https://print-panda.me").rep
 const API_BASE = (import.meta.env.VITE_API_BASE || "https://git-pipeline.metatronhost.in/print-panda").replace(/\/+$/, "");
 const ADMIN_TOKEN_KEY = "panda_admin_token";
 const LEGACY_ADMIN_TOKEN_KEY = "iprint_admin_token";
-const LOCAL_AUTH_KEY = "panda_local_auth";
 
 function formatQueueTokenDisplay(queueToken, jobId) {
   const raw = String(queueToken || "").trim();
@@ -378,7 +377,6 @@ export default function AdminDashboard() {
 
   const loadClients = useCallback(async () => {
     setLoading(true);
-    const isLocalSession = Boolean(localStorage.getItem(LOCAL_AUTH_KEY));
     try {
       const [data, analyticsData] = await Promise.all([
         adminApi.listClients(),
@@ -387,9 +385,10 @@ export default function AdminDashboard() {
       setClients(data);
       setAnalytics(analyticsData);
     } catch (err) {
-      if (!isLocalSession && (err.message?.includes("401") || err.message?.includes("token"))) {
+      if (err.message?.includes("401") || err.message?.includes("token")) {
         localStorage.removeItem(ADMIN_TOKEN_KEY);
         localStorage.removeItem(LEGACY_ADMIN_TOKEN_KEY);
+        localStorage.removeItem("panda_local_auth");
         navigate("/admin/login");
       }
     }
@@ -401,7 +400,7 @@ export default function AdminDashboard() {
   const logout = () => {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     localStorage.removeItem(LEGACY_ADMIN_TOKEN_KEY);
-    localStorage.removeItem(LOCAL_AUTH_KEY);
+    localStorage.removeItem("panda_local_auth");
     navigate("/admin/login");
   };
 

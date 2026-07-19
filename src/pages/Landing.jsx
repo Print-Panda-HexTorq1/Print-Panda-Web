@@ -207,10 +207,10 @@ export default function Landing() {
               className="mt-8 flex flex-wrap items-center gap-3"
             >
               <Link
-                to="/admin/login?signup=1"
+                to="/contact"
                 className="rounded-xl bg-mint px-6 py-3 font-semibold text-ink text-sm hover:opacity-92 active:scale-95 transition-all shadow-xl shadow-mint/25"
               >
-                Get Started Free
+                Talk to Us
               </Link>
               <Link
                 to="/admin"
@@ -340,7 +340,7 @@ export default function Landing() {
             </p>
             <div className="mt-8 flex flex-wrap gap-4 justify-center">
               <Link
-                to="/admin/login?signup=1"
+                to="/contact"
                 className="rounded-xl bg-mint px-7 py-3.5 font-semibold text-ink text-sm hover:opacity-90 transition-opacity shadow-xl shadow-mint/22"
               >
                 Get Your Shop on Print Panda

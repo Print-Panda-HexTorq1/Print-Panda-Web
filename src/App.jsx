@@ -14,12 +14,10 @@ import Landing from "./pages/Landing";
 
 const ADMIN_TOKEN_KEY = "panda_admin_token";
 const LEGACY_ADMIN_TOKEN_KEY = "iprint_admin_token";
-export const LOCAL_AUTH_KEY = "panda_local_auth";
 
 function AdminRoute({ children }) {
   const token = localStorage.getItem(ADMIN_TOKEN_KEY) || localStorage.getItem(LEGACY_ADMIN_TOKEN_KEY);
-  const localAuth = localStorage.getItem(LOCAL_AUTH_KEY);
-  return (token || localAuth) ? children : <Navigate to="/admin/login" replace />;
+  return token ? children : <Navigate to="/admin/login" replace />;
 }
 
 export default function App() {
