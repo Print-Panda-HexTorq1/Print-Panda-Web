@@ -56,6 +56,94 @@ export function uploadJobWithProgress({ file, settings, userUid, onProgress }) {
   });
 }
 
+export function beginDraftUploadWithProgress({ file, userUid, onProgress }) {
+  const xhr = new XMLHttpRequest();
+  const promise = new Promise((resolve, reject) => {
+    const normalizedUserUid = String(userUid || "").trim();
+    if (!normalizedUserUid) {
+      reject(new Error("Invalid upload link. Missing user identifier."));
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("document", file);
+
+    xhr.open("POST", `${API_BASE}/api/u/${encodeURIComponent(normalizedUserUid)}/jobs/draft-upload`);
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) {
+        return;
+      }
+      onProgress?.({
+        loaded: event.loaded,
+        total: event.total,
+        progress: Math.round((event.loaded / event.total) * 100)
+      });
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(new Error("Upload succeeded but response parsing failed"));
+        }
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(xhr.responseText);
+        reject(new Error(payload.error || "Upload failed"));
+      } catch {
+        reject(new Error("Upload failed"));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.onabort = () => reject(new Error("Upload cancelled"));
+    xhr.send(formData);
+  });
+
+  return {
+    promise,
+    abort: () => xhr.abort()
+  };
+}
+
+export async function finalizeDraftUpload({ userUid, jobId, settings }) {
+  const normalizedUserUid = String(userUid || "").trim();
+  if (!normalizedUserUid || !jobId) {
+    throw new Error("Invalid draft upload");
+  }
+
+  const response = await fetch(
+    `${API_BASE}/api/u/${encodeURIComponent(normalizedUserUid)}/jobs/draft-upload/${encodeURIComponent(String(jobId))}/finalize`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings)
+    }
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Upload failed");
+  }
+  return response.json();
+}
+
+export async function cancelDraftUpload(userUid, jobId) {
+  const normalizedUserUid = String(userUid || "").trim();
+  if (!normalizedUserUid || !jobId) {
+    return { ok: false };
+  }
+  const response = await fetch(
+    `${API_BASE}/api/u/${encodeURIComponent(normalizedUserUid)}/jobs/draft-upload/${encodeURIComponent(String(jobId))}`,
+    { method: "DELETE" }
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to cancel upload");
+  }
+  return response.json();
+}
+
 export async function verifyPayment(jobId, userUid = "") {
   const normalizedJobId = Number(jobId);
   if (!Number.isFinite(normalizedJobId)) {

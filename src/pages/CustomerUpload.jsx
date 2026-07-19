@@ -3,7 +3,15 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import UploadForm from "../components/UploadForm";
 import Footer from "../components/Footer";
-import { getUserJobProgress, getUserUploadDetails, uploadJobWithProgress, verifyPayment } from "../api";
+import {
+  beginDraftUploadWithProgress,
+  cancelDraftUpload,
+  finalizeDraftUpload,
+  getUserJobProgress,
+  getUserUploadDetails,
+  uploadJobWithProgress,
+  verifyPayment
+} from "../api";
 
 function formatBytesPerSecond(bytesPerSecond) {
   if (!bytesPerSecond || bytesPerSecond <= 0) return "0 KB/s";
@@ -303,6 +311,7 @@ export default function CustomerUpload() {
   const uploadsRef = useRef(uploads);
   const shopNameRef = useRef(shopName);
   const redirectNoticeHandledRef = useRef(false);
+  const draftUploadRef = useRef(null);
   const persistUploadState = (nextUploads, nextShopName) => {
     const payload = JSON.stringify({
       uploads: Array.isArray(nextUploads) ? nextUploads : [],
@@ -319,6 +328,43 @@ export default function CustomerUpload() {
     } catch {
       // Ignore sessionStorage write failures.
     }
+  };
+
+  const prepareBackgroundUpload = (file) => {
+    if (!hasValidUserUid || !file) {
+      return null;
+    }
+
+    const draftKey = `${Date.now()}_${file.name}_${file.size}`;
+    const upload = beginDraftUploadWithProgress({
+      file,
+      userUid: normalizedUserUid,
+      onProgress: () => {}
+    });
+
+    let settledDraft = null;
+    const prepared = {
+      key: draftKey,
+      fileName: file.name,
+      fileSize: file.size,
+      promise: upload.promise.then((data) => {
+        settledDraft = data?.draft || null;
+        return data;
+      }),
+      cancel: () => {
+        upload.abort();
+        prepared.promise
+          .then((data) => {
+            const draftId = data?.draft?.id || settledDraft?.id;
+            if (draftId) {
+              cancelDraftUpload(normalizedUserUid, draftId).catch(() => {});
+            }
+          })
+          .catch(() => {});
+      }
+    };
+    draftUploadRef.current = prepared;
+    return prepared;
   };
   const updateUploads = (updater) => {
     setUploads((previous) => {
@@ -518,7 +564,7 @@ export default function CustomerUpload() {
     setSearchParams(nextParams, { replace: true });
   }, [searchParams, setSearchParams, normalizedUserUid]);
 
-  const onUpload = async ({ files, settings }) => {
+  const onUpload = async ({ files, settings, preparedUpload }) => {
     if (!hasValidUserUid) {
       alert("Invalid upload link. Please scan the QR code again.");
       return;
@@ -550,25 +596,54 @@ export default function CustomerUpload() {
 
       const row = initialRows[0];
       const start = Date.now();
+      let dummyTimer = null;
+      const startVisibleProgress = () => {
+        dummyTimer = window.setInterval(() => {
+          const elapsedSeconds = (Date.now() - start) / 1000;
+          updateUploads((prev) => prev.map((item) => {
+            if (item.localId !== row.localId || item.status !== "uploading") {
+              return item;
+            }
+            const nextProgress = Math.min(95, Math.max(item.progress || 0, (item.progress || 0) + 7));
+            const loaded = Math.round((targetFile.size * nextProgress) / 100);
+            const speed = elapsedSeconds > 0 ? loaded / elapsedSeconds : 0;
+            return { ...item, loaded, progress: nextProgress, speed, elapsedSeconds };
+          }));
+        }, 260);
+      };
       updateUploads((prev) => prev.map((item) => (
         item.localId === row.localId ? { ...item, status: "uploading" } : item
       )));
+      startVisibleProgress();
 
       try {
-        const data = await uploadJobWithProgress({
-          file: targetFile,
-          userUid: normalizedUserUid,
-          settings,
-          onProgress: ({ loaded, total, progress }) => {
-            const elapsedSeconds = (Date.now() - start) / 1000;
-            const speed = elapsedSeconds > 0 ? loaded / elapsedSeconds : 0;
-            updateUploads((prev) => prev.map((item) => (
-              item.localId === row.localId
-                ? { ...item, loaded, total, progress, speed, elapsedSeconds, status: "uploading" }
-                : item
-            )));
+        let data = null;
+        const canUsePreparedUpload = preparedUpload
+          && preparedUpload.fileName === targetFile.name
+          && Number(preparedUpload.fileSize) === Number(targetFile.size);
+
+        if (canUsePreparedUpload) {
+          const prepared = await preparedUpload.promise;
+          const draftId = prepared?.draft?.id;
+          if (!draftId) {
+            throw new Error("Draft upload failed");
           }
-        });
+          data = await finalizeDraftUpload({
+            userUid: normalizedUserUid,
+            jobId: draftId,
+            settings
+          });
+          if (draftUploadRef.current?.key === preparedUpload.key) {
+            draftUploadRef.current = null;
+          }
+        } else {
+          data = await uploadJobWithProgress({
+            file: targetFile,
+            userUid: normalizedUserUid,
+            settings,
+            onProgress: () => {}
+          });
+        }
 
         if (data.shopName) updateShopName(data.shopName);
         if (data.shopName || data.assignedOperator) {
@@ -591,6 +666,10 @@ export default function CustomerUpload() {
             ? { ...item, elapsedSeconds, status: "failed", error: error.message || "Upload failed" }
             : item
         )));
+      } finally {
+        if (dummyTimer) {
+          window.clearInterval(dummyTimer);
+        }
       }
     } catch (error) {
       alert(error.message || "Upload failed");
@@ -768,7 +847,7 @@ export default function CustomerUpload() {
             Invalid upload link. Please use the QR code generated for a desktop user.
           </div>
         ) : (
-          <UploadForm onSubmit={onUpload} isLoading={loading} />
+          <UploadForm onSubmit={onUpload} isLoading={loading} onPrepareUpload={prepareBackgroundUpload} />
         )}
       </motion.section>
       )}

@@ -35,12 +35,13 @@ export function useCachedSettings() {
   return [settings, update];
 }
 
-export default function UploadForm({ onSubmit, isLoading }) {
+export default function UploadForm({ onSubmit, isLoading, onPrepareUpload }) {
   const [settings, update] = useCachedSettings();
   const [files, setFiles] = useState([]);
   const [showReview, setShowReview] = useState(false);
   const [reviewStep, setReviewStep] = useState(0);
   const [previewUrl, setPreviewUrl] = useState("");
+  const [preparedUpload, setPreparedUpload] = useState(null);
   const acceptedTypes = ".pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff,.txt,.md,.csv,.json,.xml,.log,.doc,.docx,.rtf,.odt,.xls,.xlsx,.ods,.ppt,.pptx,.odp";
   const selectedFile = files[0] || null;
   const steps = useMemo(() => ["File", "Customer", "Print", "Paper", "Preview"], []);
@@ -66,7 +67,30 @@ export default function UploadForm({ onSubmit, isLoading }) {
       return;
     }
     setShowReview(false);
-    onSubmit({ files: [selectedFile], settings });
+    onSubmit({ files: [selectedFile], settings, preparedUpload });
+    setPreparedUpload(null);
+  };
+
+  const cancelPreparedUpload = () => {
+    preparedUpload?.cancel?.();
+    setPreparedUpload(null);
+  };
+
+  const selectFile = (file) => {
+    cancelPreparedUpload();
+    setFiles(file ? [file] : []);
+    setPreparedUpload(file && onPrepareUpload ? onPrepareUpload(file) : null);
+    if (file) {
+      setReviewStep(0);
+      setShowReview(true);
+    }
+  };
+
+  const closeReview = () => {
+    cancelPreparedUpload();
+    setShowReview(false);
+    setFiles([]);
+    setReviewStep(0);
   };
 
   const submit = (event) => {
@@ -112,11 +136,7 @@ export default function UploadForm({ onSubmit, isLoading }) {
         </span>
         <input className="sr-only" type="file" accept={acceptedTypes} onChange={(e) => {
           const firstFile = e.target.files?.[0] || null;
-          setFiles(firstFile ? [firstFile] : []);
-          if (firstFile) {
-            setReviewStep(0);
-            setShowReview(true);
-          }
+          selectFile(firstFile);
         }} />
       </label>
 
@@ -182,7 +202,7 @@ export default function UploadForm({ onSubmit, isLoading }) {
                 <h2 className="mt-1 font-display text-2xl font-bold text-ink">Check your print details</h2>
                 <p className="mt-1 text-sm font-semibold text-ink/70">Step {reviewStep + 1} of {steps.length}: {currentStep}</p>
               </div>
-              <button type="button" onClick={() => setShowReview(false)} className="mr-4 mt-4 shrink-0 rounded-full border border-ink/15 px-3 py-1 text-sm font-semibold text-ink sm:mr-6 sm:mt-6">
+              <button type="button" onClick={closeReview} className="mr-4 mt-4 shrink-0 rounded-full border border-ink/15 px-3 py-1 text-sm font-semibold text-ink sm:mr-6 sm:mt-6">
                 Close
               </button>
             </div>
@@ -213,7 +233,7 @@ export default function UploadForm({ onSubmit, isLoading }) {
                     Tap here to change the file
                     <input className="sr-only" type="file" accept={acceptedTypes} onChange={(e) => {
                       const firstFile = e.target.files?.[0] || null;
-                      setFiles(firstFile ? [firstFile] : []);
+                      selectFile(firstFile);
                     }} />
                   </label>
                 </div>
@@ -312,7 +332,7 @@ export default function UploadForm({ onSubmit, isLoading }) {
               <button type="button" onClick={previousStep} disabled={reviewStep === 0 || isLoading} className="rounded-xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold text-ink disabled:opacity-40">
                 Back
               </button>
-              <button type="button" onClick={() => setShowReview(false)} disabled={isLoading} className="rounded-xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold text-ink disabled:opacity-40">
+              <button type="button" onClick={closeReview} disabled={isLoading} className="rounded-xl border border-ink/20 bg-white px-4 py-3 text-sm font-semibold text-ink disabled:opacity-40">
                 Close
               </button>
               <div className="grid gap-3 sm:block">
