@@ -146,6 +146,7 @@ function JobProgressPanel({ progressPayload, fallbackStatus }) {
   const currentStage = getStageFromStatus(currentStatus);
   const timeline = Array.isArray(progressPayload?.timeline) ? progressPayload.timeline : [];
   const printProgress = progressPayload?.printProgress || {};
+  const documentRetention = progressPayload?.documentRetention || null;
   const totalPages = Number(printProgress.totalPages || 0);
   const pagesPrinted = Number(printProgress.pagesPrinted || 0);
   const percent = totalPages > 0 ? Math.min(100, Math.max(0, Math.round((pagesPrinted / totalPages) * 100))) : 0;
@@ -167,6 +168,16 @@ function JobProgressPanel({ progressPayload, fallbackStatus }) {
             <div className="h-full rounded-full bg-mint transition-all" style={{ width: `${percent}%` }} />
           </div>
           <p className="mt-2 text-xs text-ink/65">{percent}% complete</p>
+        </div>
+      )}
+
+      {documentRetention && (
+        <div className="mt-3 rounded-xl border border-ink/10 bg-paper/70 p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/65">Document File</p>
+          <div className="mt-2 grid gap-2 text-xs text-ink/70 sm:grid-cols-2">
+            <p>Shop download: {documentRetention.downloadedByShop ? "Received by shop" : "Waiting for shop"}</p>
+            <p>Server file: {documentRetention.serverFileDeleted ? "Deleted after retention" : documentRetention.serverFileAvailable ? "Available" : "Not available"}</p>
+          </div>
         </div>
       )}
       <div className="mt-3 md:hidden">
@@ -653,9 +664,10 @@ export default function CustomerUpload() {
           }));
         }
         const elapsedSeconds = (Date.now() - start) / 1000;
+        const finalSpeed = elapsedSeconds > 0 ? targetFile.size / elapsedSeconds : 0;
         updateUploads((prev) => prev.map((item) => (
           item.localId === row.localId
-            ? { ...item, progress: 100, loaded: item.total, elapsedSeconds, status: "done", result: data, error: "" }
+            ? { ...item, progress: 100, loaded: item.total, speed: finalSpeed, elapsedSeconds, status: "done", result: data, error: "" }
             : item
         )));
       } catch (error) {
@@ -697,9 +709,12 @@ export default function CustomerUpload() {
 
   const terminalJobStatuses = new Set(["printed", "rejected", "print_failed"]);
   const completedUploads = uploads.filter((item) => item.result);
-  const activeUploadRows = uploads.filter((item) => !item.result);
-  const currentUpload = activeUploadRows[0] || null;
-  const olderUploads = activeUploadRows.slice(1);
+  const uploadProgressRows = uploads.filter((item) => {
+    const resultStatus = String(item?.result?.job?.status || "").toLowerCase();
+    return !resultStatus || !terminalJobStatuses.has(resultStatus);
+  });
+  const currentUpload = uploadProgressRows[0] || null;
+  const olderUploads = uploadProgressRows.slice(1);
   const pendingPaymentUploads = completedUploads.filter((item) => item.result?.job?.status === "payment_pending");
   const activePrintStatusUploads = completedUploads.filter((item) => {
     const status = String(item.result?.job?.status || "").toLowerCase();
@@ -765,7 +780,7 @@ export default function CustomerUpload() {
     colorJobs: 0,
     totalAmount: 0
   }), [historyRows]);
-  const openJobsCount = activeUploadRows.length + pendingPaymentUploads.length + activePrintStatusUploads.length;
+  const openJobsCount = uploadProgressRows.length;
   const screenCountMap = {
     upload: 0,
     status: openJobsCount,
@@ -873,7 +888,7 @@ export default function CustomerUpload() {
         </motion.section>
       )}
 
-      {!!activeUploadRows.length && (
+      {!!uploadProgressRows.length && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-3xl border border-ink/15 bg-white/80 p-4 shadow-xl sm:p-6"
         >
@@ -927,7 +942,7 @@ export default function CustomerUpload() {
           </div>
 
           <div className="mt-4 hidden space-y-3 md:block">
-            {activeUploadRows.map((item) => (
+            {uploadProgressRows.map((item) => (
               <div key={`desktop_${item.localId}`} className="rounded-2xl border border-ink/10 bg-paper/70 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="max-w-[70%] truncate font-medium text-ink">{item.fileName}</p>
