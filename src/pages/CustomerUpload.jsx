@@ -386,6 +386,9 @@ export default function CustomerUpload() {
       return next;
     });
   };
+  const dismissUploadRow = (localId) => {
+    updateUploads((previous) => previous.filter((item) => item.localId !== localId));
+  };
   const updateShopName = (valueOrUpdater) => {
     setShopName((previous) => {
       const next = typeof valueOrUpdater === "function" ? valueOrUpdater(previous) : valueOrUpdater;
@@ -922,7 +925,20 @@ export default function CustomerUpload() {
                   <p>{formatElapsed(currentUpload.elapsedSeconds)}</p>
                   <p>{formatBytesPerSecond(currentUpload.speed)}</p>
                 </div>
-                {currentUpload.error && <p className="mt-2 text-xs text-red-600">{currentUpload.error}</p>}
+                {currentUpload.error && (
+                  <div className="mt-2 flex items-start justify-between gap-3">
+                    <p className="text-xs text-red-600">{currentUpload.error}</p>
+                    {currentUpload.status === "failed" && (
+                      <button
+                        type="button"
+                        onClick={() => dismissUploadRow(currentUpload.localId)}
+                        className="shrink-0 rounded-lg border border-red-200 bg-white px-2 py-1 text-[11px] font-semibold text-red-700"
+                      >
+                        Dismiss
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -937,6 +953,16 @@ export default function CustomerUpload() {
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink/10">
                   <div className="h-full rounded-full bg-mint transition-all" style={{ width: `${item.progress}%` }} />
                 </div>
+                {item.error && <p className="mt-2 text-xs text-red-600">{item.error}</p>}
+                {item.status === "failed" && (
+                  <button
+                    type="button"
+                    onClick={() => dismissUploadRow(item.localId)}
+                    className="mt-2 rounded-lg border border-red-200 bg-white px-2 py-1 text-[11px] font-semibold text-red-700"
+                  >
+                    Dismiss
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -959,7 +985,20 @@ export default function CustomerUpload() {
                   <p>Time: {formatElapsed(item.elapsedSeconds)}</p>
                   <p>Speed: {formatBytesPerSecond(item.speed)}</p>
                 </div>
-                {item.error && <p className="mt-2 text-sm text-red-600">{item.error}</p>}
+                {item.error && (
+                  <div className="mt-2 flex items-start justify-between gap-3">
+                    <p className="text-sm text-red-600">{item.error}</p>
+                    {item.status === "failed" && (
+                      <button
+                        type="button"
+                        onClick={() => dismissUploadRow(item.localId)}
+                        className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700"
+                      >
+                        Dismiss
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
