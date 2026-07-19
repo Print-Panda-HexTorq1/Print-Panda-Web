@@ -47,6 +47,12 @@ const STATUS_LABELS = {
   rejected: "Rejected"
 };
 
+const CUSTOMER_SCREENS = [
+  { key: "upload", label: "Upload", icon: "+" },
+  { key: "status", label: "Status", icon: "=" },
+  { key: "history", label: "History", icon: "#" }
+];
+
 function getStageFromStatus(status) {
   const value = String(status || "").toLowerCase();
   switch (value) {
@@ -490,6 +496,7 @@ export default function CustomerUpload() {
 
     try {
       setLoading(true);
+      setActiveScreen("status");
       const initialRows = [{
         localId: `${Date.now()}_0_${targetFile.name}`,
         fileName: targetFile.name,
@@ -641,21 +648,26 @@ export default function CustomerUpload() {
     const status = String(item?.result?.job?.status || item?.status || "").toLowerCase();
     return status && !["printed", "rejected", "print_failed"].includes(status);
   }).length;
+  const screenCountMap = {
+    upload: 0,
+    status: openJobsCount,
+    history: historyRows.length
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-paper">
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-4 md:py-10">
+    <div className="min-h-screen flex flex-col overflow-x-hidden bg-paper">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-3 pb-28 pt-3 sm:px-4 md:py-10">
       <motion.header
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="mb-6"
       >
-        <div className="rounded-b-3xl border border-ink/10 bg-white p-5 shadow-lg md:rounded-3xl md:p-6">
+        <div className="rounded-b-3xl border border-ink/10 bg-white p-4 shadow-lg sm:p-5 md:rounded-3xl md:p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-alert">Print Panda Upload</p>
           <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="font-display text-3xl font-bold text-ink md:text-5xl">
+              <h1 className="break-words font-display text-3xl font-bold text-ink md:text-5xl">
                 {shopDetails?.shopName || shopName || "Print Shop"}
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-ink/70 md:text-base">
@@ -691,6 +703,26 @@ export default function CustomerUpload() {
             </div>
           ))}
         </div>
+
+        <div className="mt-4 hidden rounded-2xl border border-ink/10 bg-white p-2 shadow-sm md:grid md:grid-cols-3">
+          {CUSTOMER_SCREENS.map((item) => {
+            const isActive = activeScreen === item.key;
+            const count = screenCountMap[item.key] || 0;
+            return (
+              <button
+                key={`desktop_${item.key}`}
+                type="button"
+                onClick={() => setActiveScreen(item.key)}
+                className={`relative rounded-xl px-4 py-3 text-sm font-semibold transition ${isActive ? "bg-ink text-paper" : "text-ink/65 hover:bg-paper"}`}
+              >
+                <span>{item.label}</span>
+                {!!count && (
+                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] ${isActive ? "bg-paper text-ink" : "bg-alert text-white"}`}>{count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </motion.header>
 
       {activeScreen === "upload" && (
@@ -725,7 +757,7 @@ export default function CustomerUpload() {
 
       {!!uploads.length && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl border border-ink/15 bg-white/80 p-6 shadow-xl"
+          className="rounded-3xl border border-ink/15 bg-white/80 p-4 shadow-xl sm:p-6"
         >
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-2xl font-semibold">Upload Progress</h2>
@@ -803,7 +835,7 @@ export default function CustomerUpload() {
 
       {!!completedUploads.length && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="mt-6 rounded-3xl border border-ink/15 bg-white/80 p-6 shadow-xl"
+          className="mt-6 rounded-3xl border border-ink/15 bg-white/80 p-4 shadow-xl sm:p-6"
         >
           <h2 className="font-display text-2xl font-semibold">Payment and Print Status</h2>
 
@@ -822,13 +854,13 @@ export default function CustomerUpload() {
                     </div>
                     <div className="mt-3 rounded-2xl bg-ink px-4 py-4 text-paper">
                       <p className="text-xs uppercase tracking-[0.2em] text-paper/70">Your queue token</p>
-                      <p className="mt-1 font-display text-4xl font-bold">{formatQueueTokenDisplay(result.job.queue_token, result.job.id)}</p>
+                      <p className="mt-1 break-words font-display text-4xl font-bold">{formatQueueTokenDisplay(result.job.queue_token, result.job.id)}</p>
                       <p className="mt-1 text-sm text-paper/80">Keep this token visible until the shop confirms your print.</p>
                     </div>
                     <div className="mt-4 grid gap-3 rounded-2xl border border-ink/10 bg-white p-4 text-sm text-ink/75 md:grid-cols-3">
                       <p><span className="block text-xs text-ink/50">Pages</span>{result.job.page_count}</p>
                       <p><span className="block text-xs text-ink/50">Amount to pay</span>Rs {result.payment.amount}</p>
-                      <p><span className="block text-xs text-ink/50">UPI ID</span>{result.payment.upiId}</p>
+                      <p className="break-words"><span className="block text-xs text-ink/50">UPI ID</span>{result.payment.upiId}</p>
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <a href={result.payment.upiLink} className="rounded-xl bg-ink px-4 py-3 text-center font-semibold text-paper">
@@ -940,7 +972,7 @@ export default function CustomerUpload() {
 
       {!!historyRows.length && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl border border-ink/15 bg-white/80 p-6 shadow-xl"
+          className="rounded-3xl border border-ink/15 bg-white/80 p-4 shadow-xl sm:p-6"
         >
           <h2 className="font-display text-2xl font-semibold">Your History</h2>
           <p className="mt-1 text-xs text-ink/60">Saved per user upload link in your browser cache.</p>
@@ -1025,14 +1057,11 @@ export default function CustomerUpload() {
       </>
       )}
     </main>
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-white/95 px-4 pb-3 pt-2 shadow-2xl backdrop-blur md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-white/95 px-3 pb-3 pt-2 shadow-2xl backdrop-blur md:hidden">
       <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
-        {[
-          { key: "upload", label: "Upload", icon: "+", count: 0 },
-          { key: "status", label: "Status", icon: "=", count: openJobsCount },
-          { key: "history", label: "History", icon: "#", count: historyRows.length }
-        ].map((item) => {
+        {CUSTOMER_SCREENS.map((item) => {
           const isActive = activeScreen === item.key;
+          const count = screenCountMap[item.key] || 0;
           return (
             <button
               key={item.key}
@@ -1040,8 +1069,8 @@ export default function CustomerUpload() {
               onClick={() => setActiveScreen(item.key)}
               className={`relative flex flex-col items-center justify-center rounded-2xl px-2 py-2 text-xs font-semibold transition ${isActive ? "bg-ink text-paper" : "text-ink/60"}`}
             >
-              {!!item.count && (
-                <span className="absolute right-3 top-1 rounded-full bg-alert px-1.5 py-0.5 text-[10px] leading-none text-white">{item.count}</span>
+              {!!count && (
+                <span className="absolute right-3 top-1 rounded-full bg-alert px-1.5 py-0.5 text-[10px] leading-none text-white">{count}</span>
               )}
               <span className="text-lg leading-none">{item.icon}</span>
               <span className="mt-1">{item.label}</span>
