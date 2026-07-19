@@ -639,30 +639,52 @@ export default function CustomerUpload() {
 
   return (
     <div className="min-h-screen flex flex-col bg-paper">
-    <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-10">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:py-10">
       <motion.header
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="mb-8"
+        className="mb-6"
       >
-        <p className="font-display text-sm uppercase tracking-[0.2em] text-alert">Print Panda Self Service Print Hub</p>
-        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-ink/60">Print Panda</p>
-        <h1 className="font-display text-4xl font-bold text-ink md:text-5xl">
-          {shopDetails?.shopName || shopName || "Print Shop"}
-        </h1>
-        <p className="mt-2 max-w-2xl text-ink/70">Upload your file, set print options, pay via UPI, and your document enters the print queue.</p>
-        <div className="mt-4 rounded-2xl border border-ink/15 bg-white/80 p-4 text-sm text-ink/80">
-          <p><strong>Shop:</strong> {shopDetails?.shopName || shopName || "-"}</p>
-          <p><strong>Operator:</strong> {shopDetails?.assignedOperator || "-"}</p>
-          <p><strong>Operator Link ID:</strong> {normalizedUserUid || "-"}</p>
-          <p><strong>UPI:</strong> {shopDetails?.upiId || "-"}</p>
-          <p>
-            <strong>Price:</strong> B/W Rs {Number(shopDetails?.pricing?.bw ?? 0)} per page
-            {" "}•{" "}
-            Color Rs {Number(shopDetails?.pricing?.color ?? 0)} per page
-          </p>
-          {!!shopDetailsError && <p className="mt-2 text-red-600">{shopDetailsError}</p>}
+        <div className="rounded-3xl border border-ink/10 bg-white p-5 shadow-lg md:p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-alert">Print Panda Upload</p>
+          <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 className="font-display text-3xl font-bold text-ink md:text-5xl">
+                {shopDetails?.shopName || shopName || "Print Shop"}
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-ink/70 md:text-base">
+                Upload your document, pay the shown UPI amount, then tap "I Have Paid" so the shop can print it.
+              </p>
+            </div>
+            <div className="rounded-2xl bg-paper/80 p-4 text-sm text-ink/75 md:min-w-64">
+              <p className="font-semibold text-ink">Shop details</p>
+              <p className="mt-1">Operator: {shopDetails?.assignedOperator || "Assigned at shop"}</p>
+              <p>UPI: {shopDetails?.upiId || "Shown after upload"}</p>
+              <p>
+                B/W Rs {Number(shopDetails?.pricing?.bw ?? 0)} / page
+                {" "} | {" "}
+                Color Rs {Number(shopDetails?.pricing?.color ?? 0)} / page
+              </p>
+              {!!shopDetailsError && <p className="mt-2 text-red-600">{shopDetailsError}</p>}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {[
+            ["1", "Upload", "Choose one file and select print options."],
+            ["2", "Pay", "Use the UPI button or pay to the shown UPI ID."],
+            ["3", "Confirm", "Tap I Have Paid and watch your print status."]
+          ].map(([number, title, text]) => (
+            <div key={number} className="flex gap-3 rounded-2xl border border-ink/10 bg-white/80 p-4">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-alert text-sm font-bold text-white">{number}</span>
+              <div>
+                <p className="font-semibold text-ink">{title}</p>
+                <p className="mt-1 text-sm text-ink/60">{text}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </motion.header>
 
@@ -758,7 +780,7 @@ export default function CustomerUpload() {
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="mt-6 rounded-3xl border border-ink/15 bg-white/80 p-6 shadow-xl"
         >
-          <h2 className="font-display text-2xl font-semibold">Payment & Processing</h2>
+          <h2 className="font-display text-2xl font-semibold">Payment and Print Status</h2>
 
           {!!pendingPaymentUploads.length && (
             <div className="mt-4 space-y-4">
@@ -772,37 +794,33 @@ export default function CustomerUpload() {
                         <p className="truncate text-sm font-semibold text-ink">{item.fileName}</p>
                         <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(result.job.status)}`}>{statusBadgeLabel(result.job.status)}</span>
                       </div>
-                      <button type="button" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-xs font-semibold text-ink" onClick={() => toggleJobExpanded(item.localId)}>
-                        {isJobExpanded(item.localId) ? "Collapse" : "Expand"}
+                    </div>
+                    <div className="mt-3 rounded-2xl bg-ink px-4 py-4 text-paper">
+                      <p className="text-xs uppercase tracking-[0.2em] text-paper/70">Your queue token</p>
+                      <p className="mt-1 font-display text-4xl font-bold">{formatQueueTokenDisplay(result.job.queue_token, result.job.id)}</p>
+                      <p className="mt-1 text-sm text-paper/80">Keep this token visible until the shop confirms your print.</p>
+                    </div>
+                    <div className="mt-4 grid gap-3 rounded-2xl border border-ink/10 bg-white p-4 text-sm text-ink/75 md:grid-cols-3">
+                      <p><span className="block text-xs text-ink/50">Pages</span>{result.job.page_count}</p>
+                      <p><span className="block text-xs text-ink/50">Amount to pay</span>Rs {result.payment.amount}</p>
+                      <p><span className="block text-xs text-ink/50">UPI ID</span>{result.payment.upiId}</p>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <a href={result.payment.upiLink} className="rounded-xl bg-ink px-4 py-3 text-center font-semibold text-paper">
+                        Pay with UPI
+                      </a>
+                      <button
+                        onClick={() => onVerify(item.localId, result.job.id)}
+                        disabled={Boolean(verifyLoadingMap[item.localId])}
+                        className="rounded-xl bg-mint px-4 py-3 font-semibold text-ink disabled:opacity-50"
+                      >
+                        {verifyLoadingMap[item.localId] ? "Checking payment..." : "I Have Paid"}
                       </button>
                     </div>
-                    {isJobExpanded(item.localId) && (
-                      <>
-                        <div className="mt-3 rounded-2xl bg-ink px-4 py-4 text-paper">
-                          <p className="text-xs uppercase tracking-[0.2em] text-paper/70">Queue Token</p>
-                          <p className="mt-1 font-display text-3xl font-bold">{formatQueueTokenDisplay(result.job.queue_token, result.job.id)}</p>
-                          <p className="mt-1 text-sm text-paper/80">Show this token to the operator to match your payment.</p>
-                        </div>
-                        <p className="mt-4 text-ink/75">Job #{result.job.id} · {result.job.page_count} pages · ₹{result.payment.amount}</p>
-                        <p className="text-ink/75">UPI: {result.payment.upiId}</p>
-                        <div className="mt-4 flex flex-wrap gap-3">
-                          <a href={result.payment.upiLink} className="rounded-xl bg-ink px-4 py-2 font-semibold text-paper">
-                            Pay with GPay / UPI
-                          </a>
-                          <button
-                            onClick={() => onVerify(item.localId, result.job.id)}
-                            disabled={Boolean(verifyLoadingMap[item.localId])}
-                            className="rounded-xl bg-mint px-4 py-2 font-semibold text-ink disabled:opacity-50"
-                          >
-                            {verifyLoadingMap[item.localId] ? "Verifying..." : "I Have Paid"}
-                          </button>
-                        </div>
-                        <JobProgressPanel
-                          progressPayload={jobProgressMap[item.localId]}
-                          fallbackStatus={result.job.status}
-                        />
-                      </>
-                    )}
+                    <JobProgressPanel
+                      progressPayload={jobProgressMap[item.localId]}
+                      fallbackStatus={result.job.status}
+                    />
                   </article>
                 );
               })}
@@ -831,23 +849,16 @@ export default function CustomerUpload() {
                       <p className="truncate text-sm font-semibold text-ink">{latestProcessedUpload.fileName}</p>
                       <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(latestProcessedUpload.result.job.status)}`}>{statusBadgeLabel(latestProcessedUpload.result.job.status)}</span>
                     </div>
-                    <button type="button" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-xs font-semibold text-ink" onClick={() => toggleJobExpanded(latestProcessedUpload.localId)}>
-                      {isJobExpanded(latestProcessedUpload.localId) ? "Collapse" : "Expand"}
-                    </button>
                   </div>
-                  {isJobExpanded(latestProcessedUpload.localId) && (
-                    <>
-                      <div className="mt-3 rounded-2xl bg-ink px-4 py-4 text-paper">
-                        <p className="text-xs uppercase tracking-[0.2em] text-paper/70">Queue Token</p>
-                        <p className="mt-1 font-display text-3xl font-bold">{formatQueueTokenDisplay(latestProcessedUpload.result.job.queue_token, latestProcessedUpload.result.job.id)}</p>
-                      </div>
-                      <p className="mt-4 text-ink/75">Job #{latestProcessedUpload.result.job.id} · {latestProcessedUpload.result.job.page_count} pages · ₹{latestProcessedUpload.result.payment.amount}</p>
-                      <JobProgressPanel
-                        progressPayload={jobProgressMap[latestProcessedUpload.localId]}
-                        fallbackStatus={latestProcessedUpload.result.job.status}
-                      />
-                    </>
-                  )}
+                  <div className="mt-3 rounded-2xl bg-ink px-4 py-4 text-paper">
+                    <p className="text-xs uppercase tracking-[0.2em] text-paper/70">Queue Token</p>
+                    <p className="mt-1 font-display text-3xl font-bold">{formatQueueTokenDisplay(latestProcessedUpload.result.job.queue_token, latestProcessedUpload.result.job.id)}</p>
+                  </div>
+                  <p className="mt-4 text-ink/75">Job #{latestProcessedUpload.result.job.id} · {latestProcessedUpload.result.job.page_count} pages · Rs {latestProcessedUpload.result.payment.amount}</p>
+                  <JobProgressPanel
+                    progressPayload={jobProgressMap[latestProcessedUpload.localId]}
+                    fallbackStatus={latestProcessedUpload.result.job.status}
+                  />
                 </article>
               )}
 

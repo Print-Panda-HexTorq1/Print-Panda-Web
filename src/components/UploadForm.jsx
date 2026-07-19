@@ -39,6 +39,7 @@ export default function UploadForm({ onSubmit, isLoading }) {
   const [settings, update] = useCachedSettings();
   const [files, setFiles] = useState([]);
   const acceptedTypes = ".pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff,.txt,.md,.csv,.json,.xml,.log,.doc,.docx,.rtf,.odt,.xls,.xlsx,.ods,.ppt,.pptx,.odp";
+  const selectedFile = files[0] || null;
 
   const submit = (event) => {
     event.preventDefault();
@@ -51,36 +52,43 @@ export default function UploadForm({ onSubmit, isLoading }) {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4 rounded-2xl border border-ink/10 bg-white/90 p-4 shadow-lg md:space-y-5 md:rounded-3xl md:p-6">
-      <label className="block text-sm font-medium text-ink">
-        Document
-        <input className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" type="file" accept={acceptedTypes} onChange={(e) => {
+    <form onSubmit={submit} className="space-y-5 rounded-2xl border border-ink/10 bg-white p-4 shadow-lg md:rounded-3xl md:p-6">
+      <div>
+        <p className="font-display text-2xl font-semibold text-ink">Upload your document</p>
+        <p className="mt-1 text-sm text-ink/65">Choose one file, select the print options, then continue to payment.</p>
+      </div>
+
+      <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-ink/20 bg-paper/60 px-4 py-6 text-center transition hover:border-alert/60 hover:bg-alert/5">
+        <span className="text-sm font-semibold text-ink">{selectedFile ? "Selected file" : "Tap to choose file"}</span>
+        <span className="mt-1 max-w-full truncate text-xs text-ink/60">
+          {selectedFile ? selectedFile.name : "PDF, image, Word, Excel, PPT, text and similar files"}
+        </span>
+        <input className="sr-only" type="file" accept={acceptedTypes} onChange={(e) => {
           const firstFile = e.target.files?.[0] || null;
           setFiles(firstFile ? [firstFile] : []);
         }} />
-        {!!files.length && <p className="mt-1 truncate text-xs text-ink/70">{files[0]?.name}</p>}
-        <p className="mt-1 hidden text-xs text-ink/60 md:block">Supports PDF, images, text files, and common Office documents.</p>
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-medium text-ink">
-          Name
-          <input className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" value={settings.customerName} onChange={(e) => update({ customerName: e.target.value })} />
+          Your name
+          <input className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" placeholder="Name for the shop counter" value={settings.customerName} onChange={(e) => update({ customerName: e.target.value })} />
         </label>
         <label className="text-sm font-medium text-ink">
-          Copies
+          Number of copies
           <input className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" type="number" min="1" value={settings.copies} onChange={(e) => update({ copies: e.target.value })} />
         </label>
         <label className="text-sm font-medium text-ink">
-          Mode
+          Print color
           <select className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" value={settings.colorMode} onChange={(e) => update({ colorMode: e.target.value })}>
-            <option value="bw">B/W</option>
+            <option value="bw">Black and white</option>
             <option value="color">Color</option>
           </select>
         </label>
         <label className="text-sm font-medium text-ink">
-          Pages
+          Pages to print
           <input className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm" placeholder="all or 1-3,7" value={settings.pageSelection} onChange={(e) => update({ pageSelection: e.target.value })} />
+          <span className="mt-1 block text-xs text-ink/55">Use "all" for the full document, or type pages like 1-3,7.</span>
         </label>
         <label className="text-sm font-medium text-ink">
           Orientation
@@ -98,16 +106,19 @@ export default function UploadForm({ onSubmit, isLoading }) {
         </label>
       </div>
 
-      <label className="flex items-center gap-2 text-xs font-medium text-ink/80">
-        <input type="checkbox" checked={Boolean(settings.duplex)} onChange={(e) => update({ duplex: e.target.checked })} />
-        Duplex
+      <label className="flex items-start gap-3 rounded-xl border border-ink/10 bg-paper/60 p-3 text-sm font-medium text-ink">
+        <input className="mt-1" type="checkbox" checked={Boolean(settings.duplex)} onChange={(e) => update({ duplex: e.target.checked })} />
+        <span>
+          Print on both sides
+          <span className="block text-xs font-normal text-ink/55">Enable only if you want double-sided printing.</span>
+        </span>
       </label>
 
-      <div className="hidden rounded-xl bg-ink px-4 py-3 text-paper md:block">
-        Price is auto-calculated after upload from detected document pages.
+      <div className="rounded-xl bg-ink px-4 py-3 text-sm text-paper">
+        The final amount is calculated after upload using the detected page count and the shop price.
       </div>
 
-      <button type="submit" disabled={isLoading} className="w-full rounded-lg bg-mint px-4 py-2.5 text-sm font-semibold text-ink disabled:opacity-50">
+      <button type="submit" disabled={isLoading} className="w-full rounded-xl bg-mint px-4 py-3 text-sm font-semibold text-ink disabled:opacity-50">
         {isLoading ? "Uploading..." : "Upload & Continue to Pay"}
       </button>
     </form>
