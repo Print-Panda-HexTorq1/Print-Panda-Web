@@ -292,6 +292,7 @@ export default function CustomerUpload() {
   const [showProcessedHistory, setShowProcessedHistory] = useState(false);
   const [jobProgressMap, setJobProgressMap] = useState({});
   const [isHydrated, setIsHydrated] = useState(false);
+  const [activeScreen, setActiveScreen] = useState("upload");
   const uploadsRef = useRef(uploads);
   const shopNameRef = useRef(shopName);
   const persistUploadState = (nextUploads, nextShopName) => {
@@ -636,17 +637,21 @@ export default function CustomerUpload() {
     colorJobs: 0,
     totalAmount: 0
   }), [historyRows]);
+  const openJobsCount = uploads.filter((item) => {
+    const status = String(item?.result?.job?.status || item?.status || "").toLowerCase();
+    return status && !["printed", "rejected", "print_failed"].includes(status);
+  }).length;
 
   return (
     <div className="min-h-screen flex flex-col bg-paper">
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 md:py-10">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-4 md:py-10">
       <motion.header
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="mb-6"
       >
-        <div className="rounded-3xl border border-ink/10 bg-white p-5 shadow-lg md:p-6">
+        <div className="rounded-b-3xl border border-ink/10 bg-white p-5 shadow-lg md:rounded-3xl md:p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-alert">Print Panda Upload</p>
           <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
@@ -688,6 +693,7 @@ export default function CustomerUpload() {
         </div>
       </motion.header>
 
+      {activeScreen === "upload" && (
       <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
         {!hasValidUserUid ? (
           <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-700">
@@ -697,10 +703,29 @@ export default function CustomerUpload() {
           <UploadForm onSubmit={onUpload} isLoading={loading} />
         )}
       </motion.section>
+      )}
+
+      {activeScreen === "status" && (
+      <>
+      {!uploads.length && (
+        <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-3xl border border-ink/15 bg-white p-6 text-center shadow-xl"
+        >
+          <h2 className="font-display text-2xl font-semibold text-ink">No active jobs yet</h2>
+          <p className="mt-2 text-sm text-ink/65">Upload a document first. Your payment and print status will appear here.</p>
+          <button
+            type="button"
+            onClick={() => setActiveScreen("upload")}
+            className="mt-4 rounded-xl bg-mint px-4 py-3 text-sm font-semibold text-ink"
+          >
+            Upload a file
+          </button>
+        </motion.section>
+      )}
 
       {!!uploads.length && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="mt-6 rounded-3xl border border-ink/15 bg-white/80 p-6 shadow-xl"
+          className="rounded-3xl border border-ink/15 bg-white/80 p-6 shadow-xl"
         >
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-2xl font-semibold">Upload Progress</h2>
@@ -892,10 +917,30 @@ export default function CustomerUpload() {
           )}
         </motion.section>
       )}
+      </>
+      )}
+
+      {activeScreen === "history" && (
+      <>
+      {!historyRows.length && (
+        <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-3xl border border-ink/15 bg-white p-6 text-center shadow-xl"
+        >
+          <h2 className="font-display text-2xl font-semibold text-ink">No history yet</h2>
+          <p className="mt-2 text-sm text-ink/65">Completed and paid uploads saved in this browser will appear here.</p>
+          <button
+            type="button"
+            onClick={() => setActiveScreen("upload")}
+            className="mt-4 rounded-xl bg-mint px-4 py-3 text-sm font-semibold text-ink"
+          >
+            Start upload
+          </button>
+        </motion.section>
+      )}
 
       {!!historyRows.length && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="mt-6 rounded-3xl border border-ink/15 bg-white/80 p-6 shadow-xl"
+          className="rounded-3xl border border-ink/15 bg-white/80 p-6 shadow-xl"
         >
           <h2 className="font-display text-2xl font-semibold">Your History</h2>
           <p className="mt-1 text-xs text-ink/60">Saved per user upload link in your browser cache.</p>
@@ -977,8 +1022,37 @@ export default function CustomerUpload() {
           </div>
         </motion.section>
       )}
+      </>
+      )}
     </main>
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-white/95 px-4 pb-3 pt-2 shadow-2xl backdrop-blur md:hidden">
+      <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+        {[
+          { key: "upload", label: "Upload", icon: "+", count: 0 },
+          { key: "status", label: "Status", icon: "=", count: openJobsCount },
+          { key: "history", label: "History", icon: "#", count: historyRows.length }
+        ].map((item) => {
+          const isActive = activeScreen === item.key;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setActiveScreen(item.key)}
+              className={`relative flex flex-col items-center justify-center rounded-2xl px-2 py-2 text-xs font-semibold transition ${isActive ? "bg-ink text-paper" : "text-ink/60"}`}
+            >
+              {!!item.count && (
+                <span className="absolute right-3 top-1 rounded-full bg-alert px-1.5 py-0.5 text-[10px] leading-none text-white">{item.count}</span>
+              )}
+              <span className="text-lg leading-none">{item.icon}</span>
+              <span className="mt-1">{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+    <div className="hidden md:block">
     <Footer />
+    </div>
     </div>
   );
 }
