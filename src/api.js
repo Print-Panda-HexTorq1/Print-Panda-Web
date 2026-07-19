@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+const API_BASE = (import.meta.env.VITE_API_BASE || "https://git-pipeline.metatronhost.in/print-panda").replace(/\/+$/, "");
 const ADMIN_TOKEN_KEY = "panda_admin_token";
 const LEGACY_ADMIN_TOKEN_KEY = "iprint_admin_token";
 

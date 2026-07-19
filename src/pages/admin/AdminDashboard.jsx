@@ -4,8 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import { adminApi } from "../../api";
 
-const WEB_BASE = import.meta.env.VITE_WEB_BASE || window.location.origin;
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
+const WEB_BASE = (import.meta.env.VITE_WEB_BASE || "https://print-panda.me").replace(/\/+$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE || "https://git-pipeline.metatronhost.in/print-panda").replace(/\/+$/, "");
 const ADMIN_TOKEN_KEY = "panda_admin_token";
 const LEGACY_ADMIN_TOKEN_KEY = "iprint_admin_token";
 const LOCAL_AUTH_KEY = "panda_local_auth";
