@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import UploadForm from "../components/UploadForm";
 import Footer from "../components/Footer";
@@ -284,6 +284,7 @@ function loadSavedUploadState(userUid) {
 
 export default function CustomerUpload() {
   const { userUid } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const normalizedUserUid = String(userUid || "").trim();
   const hasValidUserUid = Boolean(normalizedUserUid);
   const storageKey = useMemo(() => getUploadStateStorageKey(userUid), [userUid]);
@@ -301,6 +302,7 @@ export default function CustomerUpload() {
   const [activeScreen, setActiveScreen] = useState("upload");
   const uploadsRef = useRef(uploads);
   const shopNameRef = useRef(shopName);
+  const redirectNoticeHandledRef = useRef(false);
   const persistUploadState = (nextUploads, nextShopName) => {
     const payload = JSON.stringify({
       uploads: Array.isArray(nextUploads) ? nextUploads : [],
@@ -481,6 +483,40 @@ export default function CustomerUpload() {
       isAlive = false;
     };
   }, [normalizedUserUid, hasValidUserUid]);
+
+  useEffect(() => {
+    if (redirectNoticeHandledRef.current) {
+      return;
+    }
+    const paymentState = String(searchParams.get("payment") || "");
+    const jobId = Number(searchParams.get("jobId") || 0);
+    if (!paymentState) {
+      return;
+    }
+    redirectNoticeHandledRef.current = true;
+    setActiveScreen("status");
+    if (paymentState === "success" && Number.isFinite(jobId) && jobId > 0) {
+      alert(`Payment verified for job #${jobId}. The shop has been notified.`);
+      getUserJobProgress(normalizedUserUid, jobId)
+        .then((payload) => {
+          setJobProgressMap((current) => ({ ...current, [`redirect-${jobId}`]: payload }));
+          updateUploads((current) => current.map((item) => (
+            Number(item?.result?.job?.id) === jobId
+              ? { ...item, result: { ...item.result, job: payload.job || item.result.job } }
+              : item
+          )));
+        })
+        .catch(() => {});
+    } else if (paymentState === "failed") {
+      alert("Payment verification failed. Please contact the shop if money was debited.");
+    }
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("payment");
+    nextParams.delete("jobId");
+    nextParams.delete("token");
+    nextParams.delete("reason");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams, normalizedUserUid]);
 
   const onUpload = async ({ files, settings }) => {
     if (!hasValidUserUid) {
@@ -844,6 +880,9 @@ export default function CustomerUpload() {
               <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-ink/65">Pending Payment Confirmation</h3>
               {pendingPaymentUploads.map((item) => {
                 const result = item.result;
+                const paymentProvider = String(result?.payment?.provider || "upi");
+                const isPayPanda = paymentProvider === "pay_panda";
+                const paymentUrl = result?.payment?.checkoutUrl || result?.payment?.upiLink || "#";
                 return (
                   <article key={item.localId} className="rounded-2xl border border-ink/10 bg-paper/70 p-4">
                     <div className="flex items-center justify-between gap-2">
@@ -860,18 +899,27 @@ export default function CustomerUpload() {
                     <div className="mt-4 grid gap-3 rounded-2xl border border-ink/10 bg-white p-4 text-sm text-ink/75 md:grid-cols-3">
                       <p><span className="block text-xs text-ink/50">Pages</span>{result.job.page_count}</p>
                       <p><span className="block text-xs text-ink/50">Amount to pay</span>Rs {result.payment.amount}</p>
-                      <p className="break-words"><span className="block text-xs text-ink/50">UPI ID</span>{result.payment.upiId}</p>
+                      <p className="break-words"><span className="block text-xs text-ink/50">Payment method</span>{isPayPanda ? "Secure online payment" : result.payment.upiId}</p>
                     </div>
+                    {isPayPanda && (
+                      <div className="mt-3 rounded-2xl border border-mint/40 bg-mint/15 px-4 py-3 text-sm text-ink">
+                        This shop uses automatic payment verification. Complete payment on the secure page and you will return here automatically.
+                      </div>
+                    )}
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <a href={result.payment.upiLink} className="rounded-xl bg-ink px-4 py-3 text-center font-semibold text-paper">
-                        Pay with UPI
+                      <a href={paymentUrl} className="rounded-xl bg-ink px-4 py-3 text-center font-semibold text-paper">
+                        {isPayPanda ? "Pay Securely" : "Pay with UPI"}
                       </a>
                       <button
                         onClick={() => onVerify(item.localId, result.job.id)}
                         disabled={Boolean(verifyLoadingMap[item.localId])}
                         className="rounded-xl bg-mint px-4 py-3 font-semibold text-ink disabled:opacity-50"
                       >
-                        {verifyLoadingMap[item.localId] ? "Checking payment..." : "I Have Paid"}
+                        {verifyLoadingMap[item.localId]
+                          ? "Checking payment..."
+                          : isPayPanda
+                          ? "Check Payment Status"
+                          : "I Have Paid"}
                       </button>
                     </div>
                     <JobProgressPanel

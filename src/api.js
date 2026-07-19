@@ -71,7 +71,8 @@ export async function verifyPayment(jobId, userUid = "") {
     method: "POST"
   });
   if (!response.ok) {
-    throw new Error("Payment verification failed");
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Payment verification failed");
   }
   return response.json();
 }
