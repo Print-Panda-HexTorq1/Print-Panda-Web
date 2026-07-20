@@ -7,8 +7,10 @@ import {
   beginDraftUploadWithProgress,
   cancelDraftUpload,
   finalizeDraftUpload,
+  getPushConfig,
   getUserJobProgress,
   getUserUploadDetails,
+  savePushSubscription,
   uploadJobWithProgress,
   verifyPayment
 } from "../api";
@@ -35,6 +37,17 @@ function formatQueueTokenDisplay(queueToken, jobId) {
     return `PP-${jobId}`;
   }
   return raw.replace(/^([A-Za-z]+-?)0+(\d+)$/, "$1$2");
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = `${base64String}${padding}`.replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i += 1) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
 
 const STAGE_FLOW = [
@@ -314,6 +327,7 @@ export default function CustomerUpload() {
   const [shopDetailsError, setShopDetailsError] = useState("");
   const [verifyLoadingMap, setVerifyLoadingMap] = useState({});
   const [expandedJobs, setExpandedJobs] = useState({});
+  const [pushState, setPushState] = useState({ status: "idle", message: "" });
   const [showOlderUploads, setShowOlderUploads] = useState(false);
   const [jobProgressMap, setJobProgressMap] = useState({});
   const [isHydrated, setIsHydrated] = useState(false);
@@ -413,6 +427,36 @@ export default function CustomerUpload() {
     setExpandedJobs((current) => ({ ...current, [localId]: !current[localId] }));
   };
   const isJobExpanded = (localId) => Boolean(expandedJobs[localId]);
+  const enablePushNotifications = async () => {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+        setPushState({ status: "unsupported", message: "Browser notifications are not supported here." });
+        return;
+      }
+      setPushState({ status: "loading", message: "Enabling notifications..." });
+      const cfg = await getPushConfig();
+      if (!cfg?.enabled || !cfg?.publicKey) {
+        setPushState({ status: "disabled", message: "Push notifications are not configured on the server yet." });
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setPushState({ status: "blocked", message: "Notifications are blocked in this browser." });
+        return;
+      }
+      const registration = await navigator.serviceWorker.register("/push-sw.js");
+      const existing = await registration.pushManager.getSubscription();
+      const subscription = existing || await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(cfg.publicKey)
+      });
+      const activeJob = uploadsRef.current.find((item) => item?.result?.job?.id);
+      await savePushSubscription(normalizedUserUid, subscription, activeJob?.result?.job?.id || null);
+      setPushState({ status: "enabled", message: "Chrome notifications enabled for this upload link." });
+    } catch (error) {
+      setPushState({ status: "error", message: error?.message || "Failed to enable notifications." });
+    }
+  };
   const mergeJobProgressPayload = (jobId, payload) => {
     const job = payload?.job;
     if (!job?.id) {
@@ -936,6 +980,32 @@ export default function CustomerUpload() {
 
       {activeScreen === "status" && (
       <>
+      <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+        className="mb-4 rounded-2xl border border-ink/10 bg-white p-4 shadow-sm"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Chrome Status Notifications</h2>
+            <p className="mt-1 text-xs text-ink/60">
+              Get browser updates when payment is verified, printing starts, or the print is finished.
+            </p>
+            {!!pushState.message && (
+              <p className={`mt-2 text-xs ${pushState.status === "enabled" ? "text-emerald-700" : "text-ink/60"}`}>
+                {pushState.message}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={enablePushNotifications}
+            disabled={pushState.status === "loading" || pushState.status === "enabled"}
+            className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-60"
+          >
+            {pushState.status === "loading" ? "Enabling..." : pushState.status === "enabled" ? "Notifications On" : "Enable Notifications"}
+          </button>
+        </div>
+      </motion.section>
+
       {!openJobsCount && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-3xl border border-ink/15 bg-white p-6 text-center shadow-xl"

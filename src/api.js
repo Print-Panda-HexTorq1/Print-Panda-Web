@@ -198,6 +198,35 @@ export async function getUserUploadDetails(userUid) {
   return response.json();
 }
 
+export async function getPushConfig() {
+  const response = await fetch(`${API_BASE}/api/push/config`);
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to load notification settings");
+  }
+  return response.json();
+}
+
+export async function savePushSubscription(userUid, subscription, jobId = null) {
+  const normalizedUserUid = String(userUid || "").trim();
+  if (!normalizedUserUid || !subscription) {
+    throw new Error("Invalid notification subscription");
+  }
+  const response = await fetch(`${API_BASE}/api/u/${encodeURIComponent(normalizedUserUid)}/push-subscriptions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jobId,
+      subscription: subscription.toJSON ? subscription.toJSON() : subscription
+    })
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to save notification subscription");
+  }
+  return response.json();
+}
+
 // ── Admin API ──────────────────────────────────────────────────────────────
 
 function adminHeaders() {
