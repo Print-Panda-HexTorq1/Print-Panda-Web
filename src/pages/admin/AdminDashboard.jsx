@@ -67,6 +67,7 @@ function Modal({ title, onClose, children }) {
 // ── Create / Edit Client Modal ────────────────────────────────────────────────
 function ClientFormModal({ client, onClose, onSaved }) {
   const [shopName, setShopName] = useState(client?.shop_name || "");
+  const [email, setEmail] = useState(client?.email || "");
   const [upiId, setUpiId] = useState(client?.upi_id || "");
   const [upiName, setUpiName] = useState(client?.upi_name || "");
   const [bwPrice, setBwPrice] = useState(Number(client?.bw_price ?? 3));
@@ -86,6 +87,7 @@ function ClientFormModal({ client, onClose, onSaved }) {
       setLoading(true);
       const payload = {
         shopName,
+        email,
         upiId,
         upiName,
         bwPrice: Number(bwPrice),
@@ -114,6 +116,10 @@ function ClientFormModal({ client, onClose, onSaved }) {
         <label className="block text-sm font-medium text-ink">
           Shop Name *
           <input className="mt-1 w-full rounded-xl border border-ink/20 px-3 py-2 text-sm" value={shopName} onChange={(e) => setShopName(e.target.value)} />
+        </label>
+        <label className="block text-sm font-medium text-ink">
+          Shop Admin Email
+          <input className="mt-1 w-full rounded-xl border border-ink/20 px-3 py-2 text-sm" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="shop@example.com" />
         </label>
         <label className="block text-sm font-medium text-ink">
           UPI ID (e.g. shopname@oksbi)
@@ -178,6 +184,7 @@ function ClientFormModal({ client, onClose, onSaved }) {
 // ── Create User Modal ─────────────────────────────────────────────────────────
 function CreateUserModal({ clientId, onClose, onCreated }) {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -189,7 +196,7 @@ function CreateUserModal({ clientId, onClose, onCreated }) {
     if (password.length < 4) { setError("Password must be at least 4 characters"); return; }
     try {
       setLoading(true);
-      const user = await adminApi.createUser(clientId, { username, password });
+      const user = await adminApi.createUser(clientId, { username, email, password });
       onCreated(user);
     } catch (err) {
       setError(err.message || "Failed to create user");
@@ -204,6 +211,10 @@ function CreateUserModal({ clientId, onClose, onCreated }) {
         <label className="block text-sm font-medium text-ink">
           Username
           <input className="mt-1 w-full rounded-xl border border-ink/20 px-3 py-2 text-sm" value={username} onChange={(e) => setUsername(e.target.value)} />
+        </label>
+        <label className="block text-sm font-medium text-ink">
+          Report Email
+          <input className="mt-1 w-full rounded-xl border border-ink/20 px-3 py-2 text-sm" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="operator@example.com" />
         </label>
         <label className="block text-sm font-medium text-ink">
           Password
@@ -321,6 +332,7 @@ function ClientCard({ client, analyticsSummary, userSummaries, onEdit, onDelete,
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-ink">{client.shop_name}</p>
           <p className="mt-0.5 text-xs text-ink/50">ID: <code className="font-mono">{client.client_uid}</code></p>
+          <p className="text-xs text-ink/60 mt-0.5">Shop report email: {client.email || "Not set"}</p>
           {client.upi_id && <p className="text-xs text-ink/60 mt-0.5">UPI: {client.upi_id}</p>}
           <p className="text-xs text-ink/60 mt-0.5">Rates: B/W Rs {Number(client.bw_price ?? 3)} • Color Rs {Number(client.color_price ?? 10)}</p>
           <p className="text-xs text-ink/60 mt-0.5">
@@ -398,6 +410,7 @@ function ClientCard({ client, analyticsSummary, userSummaries, onEdit, onDelete,
                 <div key={user.id} className="flex items-center justify-between rounded-xl bg-ink/5 px-3 py-2 mb-2">
                   <div>
                     <p className="text-sm font-medium text-ink">{user.username}</p>
+                    <p className="text-xs text-ink/50">Report email: {user.email || "Not set"}</p>
                     <p className="text-xs text-ink/50">Upload UID: <code className="font-mono">{user.user_uid}</code></p>
                     <p className="text-xs text-ink/50">Created {new Date(user.created_at).toLocaleDateString()}</p>
                   </div>
