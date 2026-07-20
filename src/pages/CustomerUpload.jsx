@@ -321,6 +321,7 @@ export default function CustomerUpload() {
   const uploadsRef = useRef(uploads);
   const shopNameRef = useRef(shopName);
   const redirectNoticeHandledRef = useRef(false);
+  const redirectPaymentCheckRef = useRef(new Set());
   const draftUploadRef = useRef(null);
   const persistUploadState = (nextUploads, nextShopName) => {
     const payload = JSON.stringify({
@@ -412,6 +413,52 @@ export default function CustomerUpload() {
     setExpandedJobs((current) => ({ ...current, [localId]: !current[localId] }));
   };
   const isJobExpanded = (localId) => Boolean(expandedJobs[localId]);
+  const mergeJobProgressPayload = (jobId, payload) => {
+    const job = payload?.job;
+    if (!job?.id) {
+      return;
+    }
+    const normalizedJobId = Number(jobId || job.id);
+    const localId = `server-${normalizedJobId}`;
+    const existingUpload = uploadsRef.current.find((item) => Number(item?.result?.job?.id) === normalizedJobId);
+    const targetLocalId = existingUpload?.localId || localId;
+    setJobProgressMap((current) => ({ ...current, [targetLocalId]: payload }));
+    updateUploads((current) => {
+      const existing = current.find((item) => Number(item?.result?.job?.id) === normalizedJobId);
+      if (existing) {
+        return current.map((item) => (
+          Number(item?.result?.job?.id) === normalizedJobId
+            ? { ...item, status: "done", progress: 100, loaded: item.total || item.loaded || 0, result: { ...item.result, job } }
+            : item
+        ));
+      }
+      return [
+        {
+          localId,
+          fileName: job.original_name || `Print job #${normalizedJobId}`,
+          fileSize: 0,
+          progress: 100,
+          loaded: 0,
+          total: 0,
+          speed: 0,
+          elapsedSeconds: 0,
+          status: "done",
+          error: "",
+          result: {
+            job,
+            payment: {
+              provider: job.payment_provider || "pay_panda",
+              amount: Number(job.total_price || 0),
+              checkoutUrl: job.pay_panda_checkout_url || "",
+              upiLink: job.pay_panda_checkout_url || "",
+              upiId: ""
+            }
+          }
+        },
+        ...current
+      ];
+    });
+  };
   const trackedJobsKey = useMemo(
     () => trackedJobs.map((item) => `${item.localId}:${item.jobId}`).join("|"),
     [trackedJobs]
@@ -544,6 +591,12 @@ export default function CustomerUpload() {
   }, [normalizedUserUid, hasValidUserUid]);
 
   useEffect(() => {
+    if (String(searchParams.get("screen") || "") === "status") {
+      setActiveScreen("status");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (redirectNoticeHandledRef.current) {
       return;
     }
@@ -555,19 +608,27 @@ export default function CustomerUpload() {
     redirectNoticeHandledRef.current = true;
     setActiveScreen("status");
     if (paymentState === "success" && Number.isFinite(jobId) && jobId > 0) {
-      alert(`Payment verified for job #${jobId}. The shop has been notified.`);
-      getUserJobProgress(normalizedUserUid, jobId)
-        .then((payload) => {
-          setJobProgressMap((current) => ({ ...current, [`redirect-${jobId}`]: payload }));
-          updateUploads((current) => current.map((item) => (
-            Number(item?.result?.job?.id) === jobId
-              ? { ...item, result: { ...item.result, job: payload.job || item.result.job } }
-              : item
-          )));
-        })
-        .catch(() => {});
+      const checkKey = `redirect-${jobId}`;
+      if (!redirectPaymentCheckRef.current.has(checkKey)) {
+        redirectPaymentCheckRef.current.add(checkKey);
+        setVerifyLoadingMap((prev) => ({ ...prev, [checkKey]: true }));
+        getUserJobProgress(normalizedUserUid, jobId)
+          .then((payload) => {
+            if (String(payload?.job?.status || "").toLowerCase() !== "payment_pending") {
+              return payload;
+            }
+            return verifyPayment(jobId, normalizedUserUid)
+              .catch(() => null)
+              .then(() => getUserJobProgress(normalizedUserUid, jobId));
+          })
+          .then((payload) => mergeJobProgressPayload(jobId, payload))
+          .catch(() => {})
+          .finally(() => {
+            setVerifyLoadingMap((prev) => ({ ...prev, [checkKey]: false }));
+          });
+      }
     } else if (paymentState === "failed") {
-      alert("Payment verification failed. Please contact the shop if money was debited.");
+      setVerifyLoadingMap((prev) => ({ ...prev, [`redirect-${jobId || "failed"}`]: false }));
     }
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete("payment");
