@@ -71,6 +71,9 @@ function ClientFormModal({ client, onClose, onSaved }) {
   const [upiName, setUpiName] = useState(client?.upi_name || "");
   const [bwPrice, setBwPrice] = useState(Number(client?.bw_price ?? 3));
   const [colorPrice, setColorPrice] = useState(Number(client?.color_price ?? 10));
+  const [payPandaAppId, setPayPandaAppId] = useState(client?.pay_panda_app_id || "");
+  const [payPandaAppSecret, setPayPandaAppSecret] = useState("");
+  const [payPandaApiBase, setPayPandaApiBase] = useState(client?.pay_panda_api_base || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -81,11 +84,21 @@ function ClientFormModal({ client, onClose, onSaved }) {
     if (Number(bwPrice) < 0 || Number(colorPrice) < 0) { setError("Prices cannot be negative"); return; }
     try {
       setLoading(true);
+      const payload = {
+        shopName,
+        upiId,
+        upiName,
+        bwPrice: Number(bwPrice),
+        colorPrice: Number(colorPrice),
+        payPandaAppId,
+        payPandaApiBase,
+        ...(payPandaAppSecret.trim() ? { payPandaAppSecret } : {})
+      };
       let saved;
       if (client) {
-        saved = await adminApi.updateClient(client.id, { shopName, upiId, upiName, bwPrice: Number(bwPrice), colorPrice: Number(colorPrice) });
+        saved = await adminApi.updateClient(client.id, payload);
       } else {
-        saved = await adminApi.createClient({ shopName, upiId, upiName, bwPrice: Number(bwPrice), colorPrice: Number(colorPrice) });
+        saved = await adminApi.createClient(payload);
       }
       onSaved(saved);
     } catch (err) {
@@ -132,6 +145,22 @@ function ClientFormModal({ client, onClose, onSaved }) {
               value={colorPrice}
               onChange={(e) => setColorPrice(e.target.value)}
             />
+          </label>
+        </div>
+        <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-3">
+          <p className="text-sm font-semibold text-ink">Pay-Panda credentials for this shop</p>
+          <p className="mt-1 text-xs text-ink/55">Payments for this shop use these credentials. Leave secret blank while editing to keep the saved secret.</p>
+          <label className="mt-3 block text-sm font-medium text-ink">
+            Pay-Panda App ID
+            <input className="mt-1 w-full rounded-xl border border-ink/20 px-3 py-2 text-sm" value={payPandaAppId} onChange={(e) => setPayPandaAppId(e.target.value)} placeholder="app_xxxxx" />
+          </label>
+          <label className="mt-3 block text-sm font-medium text-ink">
+            Pay-Panda App Secret
+            <input className="mt-1 w-full rounded-xl border border-ink/20 px-3 py-2 text-sm" type="password" value={payPandaAppSecret} onChange={(e) => setPayPandaAppSecret(e.target.value)} placeholder={client?.has_pay_panda_secret ? "Saved - leave blank to keep" : "secret_xxxxx"} />
+          </label>
+          <label className="mt-3 block text-sm font-medium text-ink">
+            Pay-Panda API Base
+            <input className="mt-1 w-full rounded-xl border border-ink/20 px-3 py-2 text-sm" value={payPandaApiBase} onChange={(e) => setPayPandaApiBase(e.target.value)} placeholder="https://git-pipeline.metatronhost.in/pay-panda/api" />
           </label>
         </div>
         {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
@@ -294,6 +323,9 @@ function ClientCard({ client, analyticsSummary, userSummaries, onEdit, onDelete,
           <p className="mt-0.5 text-xs text-ink/50">ID: <code className="font-mono">{client.client_uid}</code></p>
           {client.upi_id && <p className="text-xs text-ink/60 mt-0.5">UPI: {client.upi_id}</p>}
           <p className="text-xs text-ink/60 mt-0.5">Rates: B/W Rs {Number(client.bw_price ?? 3)} • Color Rs {Number(client.color_price ?? 10)}</p>
+          <p className="text-xs text-ink/60 mt-0.5">
+            Pay-Panda: {client.pay_panda_app_id && client.has_pay_panda_secret ? "Configured for this shop" : "Not configured"}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => onEdit(client)} className="rounded-lg border border-ink/20 px-3 py-1.5 text-xs font-medium text-ink hover:bg-ink/5">
