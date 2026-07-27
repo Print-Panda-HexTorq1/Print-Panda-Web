@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import { QRCodeCanvas } from "qrcode.react";
 import UploadForm from "../components/UploadForm";
 import Footer from "../components/Footer";
 import {
@@ -29,6 +30,80 @@ function formatElapsed(seconds) {
   const mins = Math.floor(total / 60);
   const secs = total % 60;
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function UpiQrPaymentBlock({ payment, job }) {
+  const qrRef = useRef(null);
+  const upiLink = String(payment?.upiLink || "");
+  const upiId = String(payment?.upiId || "");
+  const amount = Number(payment?.amount || job?.total_price || 0);
+  const token = formatQueueTokenDisplay(job?.queue_token, job?.id);
+  const shareText = `Print Panda payment ${token}: Rs ${amount}. Pay to ${upiId}.`;
+
+  const copyUpiLink = async () => {
+    try {
+      await navigator.clipboard.writeText(upiLink || upiId);
+      alert("UPI payment link copied.");
+    } catch {
+      alert("Copy failed. Please use the QR code or UPI ID shown.");
+    }
+  };
+
+  const shareQr = async () => {
+    try {
+      const canvas = qrRef.current?.querySelector("canvas");
+      if (!canvas) {
+        throw new Error("QR not ready");
+      }
+
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      const file = blob ? new File([blob], `${token}-upi-qr.png`, { type: "image/png" }) : null;
+      if (file && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: "Print Panda UPI QR", text: shareText, files: [file] });
+        return;
+      }
+      if (navigator.share) {
+        await navigator.share({ title: "Print Panda UPI Payment", text: shareText, url: upiLink || undefined });
+        return;
+      }
+      await navigator.clipboard.writeText(upiLink || upiId);
+      alert("Sharing is not available here. UPI link copied instead.");
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        return;
+      }
+      await copyUpiLink();
+    }
+  };
+
+  return (
+    <div className="mt-4 rounded-2xl border border-ink/10 bg-white p-4">
+      <div className="grid gap-4 md:grid-cols-[180px_1fr] md:items-center">
+        <div className="mx-auto rounded-2xl border border-ink/10 bg-white p-3 shadow-sm" ref={qrRef}>
+          <QRCodeCanvas value={upiLink || upiId} size={156} includeMargin level="M" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink">Scan and pay with any UPI app</p>
+          <p className="mt-1 text-xs text-ink/60">Open GPay, PhonePe, Paytm, BHIM, or your bank app and scan this QR.</p>
+          <div className="mt-3 grid gap-2 text-sm text-ink/75 sm:grid-cols-2">
+            <p className="break-words"><span className="block text-xs text-ink/50">UPI ID</span>{upiId || "-"}</p>
+            <p><span className="block text-xs text-ink/50">Amount</span>Rs {amount}</p>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a href={upiLink || "#"} className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-paper">
+              Open UPI App
+            </a>
+            <button type="button" onClick={shareQr} className="rounded-xl bg-mint px-4 py-2.5 text-sm font-semibold text-ink">
+              Share QR
+            </button>
+            <button type="button" onClick={copyUpiLink} className="rounded-xl bg-paper px-4 py-2.5 text-sm font-semibold text-ink ring-1 ring-ink/10">
+              Copy Link
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function formatQueueTokenDisplay(queueToken, jobId) {
@@ -1173,10 +1248,15 @@ export default function CustomerUpload() {
                         This shop uses automatic payment verification. Complete payment on the secure page and you will return here automatically.
                       </div>
                     )}
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <a href={paymentUrl} className="rounded-xl bg-ink px-4 py-3 text-center font-semibold text-paper">
-                        {isPayPanda ? "Pay Securely" : "Pay with UPI"}
-                      </a>
+                    {!isPayPanda && (
+                      <UpiQrPaymentBlock payment={result.payment} job={result.job} />
+                    )}
+                    <div className={`mt-4 grid gap-3 ${isPayPanda ? "sm:grid-cols-2" : ""}`}>
+                      {isPayPanda && (
+                        <a href={paymentUrl} className="rounded-xl bg-ink px-4 py-3 text-center font-semibold text-paper">
+                          Pay Securely
+                        </a>
+                      )}
                       <button
                         onClick={() => onVerify(item.localId, result.job.id)}
                         disabled={Boolean(verifyLoadingMap[item.localId])}
