@@ -240,7 +240,7 @@ function JobProgressPanel({ progressPayload, fallbackStatus }) {
   const percent = totalPages > 0 ? Math.min(100, Math.max(0, Math.round((pagesPrinted / totalPages) * 100))) : 0;
 
   return (
-    <div className="mt-4 rounded-2xl border border-ink/10 bg-white p-3">
+    <div className="mt-3 rounded-xl border border-ink/10 bg-white p-3 md:mt-4 md:rounded-2xl">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/65">Current Stage</p>
         <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${statusBadgeClass(currentStatus)}`}>{statusBadgeLabel(currentStatus)}</span>
@@ -272,9 +272,10 @@ function JobProgressPanel({ progressPayload, fallbackStatus }) {
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-xs font-semibold text-ink"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-ink/20 bg-white text-base font-bold leading-none text-ink"
+          aria-label={expanded ? "Hide timeline" : "Show timeline"}
         >
-          {expanded ? "Hide timeline" : "Show timeline"}
+          {expanded ? "↑" : "↓"}
         </button>
       </div>
 
@@ -407,6 +408,7 @@ export default function CustomerUpload() {
   const [jobProgressMap, setJobProgressMap] = useState({});
   const [isHydrated, setIsHydrated] = useState(false);
   const [activeScreen, setActiveScreen] = useState("upload");
+  const [showMobileGuide, setShowMobileGuide] = useState(false);
   const uploadsRef = useRef(uploads);
   const shopNameRef = useRef(shopName);
   const redirectNoticeHandledRef = useRef(false);
@@ -972,29 +974,38 @@ export default function CustomerUpload() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-paper">
-    <main className="mx-auto w-full max-w-5xl flex-1 px-3 pb-28 pt-3 sm:px-4 md:py-10">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-3 pb-28 pt-2 sm:px-4 md:py-10">
       <motion.header
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="mb-6"
+        className="mb-3 md:mb-6"
       >
-        <div className="rounded-b-3xl border border-ink/10 bg-white p-4 shadow-lg sm:p-5 md:rounded-3xl md:p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-alert">Print Panda Upload</p>
-          <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="rounded-2xl border border-ink/10 bg-white p-3 shadow-lg sm:p-5 md:rounded-3xl md:p-6">
+          <div className="flex items-center justify-between gap-3 md:block">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-alert">Print Panda Upload</p>
+            <button
+              type="button"
+              onClick={() => setShowMobileGuide((value) => !value)}
+              className="rounded-full bg-paper px-3 py-1 text-xs font-semibold text-ink ring-1 ring-ink/10 md:hidden"
+            >
+              {showMobileGuide ? "Hide steps" : "How it works"}
+            </button>
+          </div>
+          <div className="mt-2 flex flex-col gap-3 md:mt-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="break-words font-display text-3xl font-bold text-ink md:text-5xl">
+              <h1 className="break-words font-display text-2xl font-bold text-ink md:text-5xl">
                 {shopDetails?.shopName || shopName || "Print Shop"}
               </h1>
-              <p className="mt-2 max-w-2xl text-sm text-ink/70 md:text-base">
+              <p className="mt-1 hidden max-w-2xl text-sm text-ink/70 md:block md:text-base">
                 Upload your document, pay the shown UPI amount, then tap "I Have Paid" so the shop can print it.
               </p>
             </div>
-            <div className="rounded-2xl bg-paper/80 p-4 text-sm text-ink/75 md:min-w-64">
-              <p className="font-semibold text-ink">Shop details</p>
-              <p className="mt-1">Operator: {shopDetails?.assignedOperator || "Assigned at shop"}</p>
-              <p>UPI: {shopDetails?.upiId || "Shown after upload"}</p>
-              <p>
+            <div className="rounded-xl bg-paper/80 p-3 text-xs text-ink/75 md:min-w-64 md:rounded-2xl md:p-4 md:text-sm">
+              <p className="font-semibold text-ink md:block">Shop details</p>
+              <p className="mt-1 hidden md:block">Operator: {shopDetails?.assignedOperator || "Assigned at shop"}</p>
+              <p className="hidden md:block">UPI: {shopDetails?.upiId || "Shown after upload"}</p>
+              <p className="font-semibold md:font-normal">
                 B/W Rs {Number(shopDetails?.pricing?.bw ?? 0)} / page
                 {" "} | {" "}
                 Color Rs {Number(shopDetails?.pricing?.color ?? 0)} / page
@@ -1004,17 +1015,17 @@ export default function CustomerUpload() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className={`${showMobileGuide ? "grid" : "hidden"} mt-3 gap-2 md:mt-4 md:grid md:gap-3 md:grid-cols-3`}>
           {[
             ["1", "Upload", "Choose one file and select print options."],
             ["2", "Pay", "Use the UPI button or pay to the shown UPI ID."],
             ["3", "Confirm", "Tap I Have Paid and watch your print status."]
           ].map(([number, title, text]) => (
-            <div key={number} className="flex gap-3 rounded-2xl border border-ink/10 bg-white/80 p-4">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-alert text-sm font-bold text-white">{number}</span>
+            <div key={number} className="flex gap-2 rounded-xl border border-ink/10 bg-white/80 p-3 md:gap-3 md:rounded-2xl md:p-4">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-alert text-xs font-bold text-white md:h-8 md:w-8 md:text-sm">{number}</span>
               <div>
-                <p className="font-semibold text-ink">{title}</p>
-                <p className="mt-1 text-sm text-ink/60">{text}</p>
+                <p className="text-sm font-semibold text-ink md:text-base">{title}</p>
+                <p className="mt-0.5 text-xs text-ink/60 md:mt-1 md:text-sm">{text}</p>
               </div>
             </div>
           ))}
@@ -1056,7 +1067,7 @@ export default function CustomerUpload() {
       {activeScreen === "status" && (
       <>
       <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-        className="mb-4 rounded-2xl border border-ink/10 bg-white p-4 shadow-sm"
+        className="mb-3 rounded-2xl border border-ink/10 bg-white p-3 shadow-sm md:mb-4 md:p-4"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1074,7 +1085,7 @@ export default function CustomerUpload() {
             type="button"
             onClick={enablePushNotifications}
             disabled={pushState.status === "loading" || pushState.status === "enabled"}
-            className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-paper disabled:opacity-60"
+            className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-paper disabled:opacity-60 md:py-3"
           >
             {pushState.status === "loading" ? "Enabling..." : pushState.status === "enabled" ? "Notifications On" : "Enable Notifications"}
           </button>
@@ -1099,10 +1110,10 @@ export default function CustomerUpload() {
 
       {!!uploadProgressRows.length && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl border border-ink/15 bg-white/80 p-4 shadow-xl sm:p-6"
+          className="rounded-2xl border border-ink/15 bg-white/80 p-3 shadow-xl sm:p-6 md:rounded-3xl"
         >
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-display text-2xl font-semibold">Upload Progress</h2>
+            <h2 className="font-display text-lg font-semibold md:text-2xl">Upload Progress</h2>
             {!!olderUploads.length && (
               <button
                 type="button"
@@ -1213,35 +1224,35 @@ export default function CustomerUpload() {
 
       {!!(pendingPaymentUploads.length || activePrintStatusUploads.length) && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="mt-6 rounded-3xl border border-ink/15 bg-white/80 p-4 shadow-xl sm:p-6"
+          className="mt-4 rounded-2xl border border-ink/15 bg-white/80 p-3 shadow-xl sm:p-6 md:mt-6 md:rounded-3xl"
         >
-          <h2 className="font-display text-2xl font-semibold">Payment and Print Status</h2>
+          <h2 className="font-display text-lg font-semibold md:text-2xl">Payment and Print Status</h2>
 
           {!!pendingPaymentUploads.length && (
-            <div className="mt-4 space-y-4">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-ink/65">Pending Payment Confirmation</h3>
+            <div className="mt-3 space-y-3 md:mt-4 md:space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/65 md:text-sm">Pending Payment Confirmation</h3>
               {pendingPaymentUploads.map((item) => {
                 const result = item.result;
                 const paymentProvider = String(result?.payment?.provider || "upi");
                 const isPayPanda = paymentProvider === "pay_panda";
                 const paymentUrl = result?.payment?.checkoutUrl || result?.payment?.upiLink || "#";
                 return (
-                  <article key={item.localId} className="rounded-2xl border border-ink/10 bg-paper/70 p-4">
+                  <article key={item.localId} className="rounded-xl border border-ink/10 bg-paper/70 p-3 md:rounded-2xl md:p-4">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-ink">{item.fileName}</p>
                         <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(result.job.status)}`}>{statusBadgeLabel(result.job.status)}</span>
                       </div>
                     </div>
-                    <div className="mt-3 rounded-2xl bg-ink px-4 py-4 text-paper">
-                      <p className="text-xs uppercase tracking-[0.2em] text-paper/70">Your queue token</p>
-                      <p className="mt-1 break-words font-display text-4xl font-bold">{formatQueueTokenDisplay(result.job.queue_token, result.job.id)}</p>
-                      <p className="mt-1 text-sm text-paper/80">Keep this token visible until the shop confirms your print.</p>
+                    <div className="mt-3 rounded-xl bg-ink px-3 py-3 text-paper md:rounded-2xl md:px-4 md:py-4">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-paper/70 md:text-xs md:tracking-[0.2em]">Your queue token</p>
+                      <p className="mt-1 break-words font-display text-3xl font-bold md:text-4xl">{formatQueueTokenDisplay(result.job.queue_token, result.job.id)}</p>
+                      <p className="mt-1 text-xs text-paper/80 md:text-sm">Keep this token visible until the shop confirms your print.</p>
                     </div>
-                    <div className="mt-4 grid gap-3 rounded-2xl border border-ink/10 bg-white p-4 text-sm text-ink/75 md:grid-cols-3">
+                    <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-ink/10 bg-white p-3 text-xs text-ink/75 md:mt-4 md:gap-3 md:rounded-2xl md:p-4 md:text-sm">
                       <p><span className="block text-xs text-ink/50">Pages</span>{result.job.page_count}</p>
                       <p><span className="block text-xs text-ink/50">Amount to pay</span>Rs {result.payment.amount}</p>
-                      <p className="break-words"><span className="block text-xs text-ink/50">Payment method</span>{isPayPanda ? "Secure online payment" : result.payment.upiId}</p>
+                      <p className="break-words"><span className="block text-xs text-ink/50">Payment</span>{isPayPanda ? "Online" : result.payment.upiId}</p>
                     </div>
                     {isPayPanda && (
                       <div className="mt-3 rounded-2xl border border-mint/40 bg-mint/15 px-4 py-3 text-sm text-ink">
@@ -1251,16 +1262,16 @@ export default function CustomerUpload() {
                     {!isPayPanda && (
                       <UpiQrPaymentBlock payment={result.payment} job={result.job} />
                     )}
-                    <div className={`mt-4 grid gap-3 ${isPayPanda ? "sm:grid-cols-2" : ""}`}>
+                    <div className={`mt-3 grid gap-2 md:mt-4 md:gap-3 ${isPayPanda ? "sm:grid-cols-2" : ""}`}>
                       {isPayPanda && (
-                        <a href={paymentUrl} className="rounded-xl bg-ink px-4 py-3 text-center font-semibold text-paper">
+                        <a href={paymentUrl} className="rounded-xl bg-ink px-4 py-2.5 text-center text-sm font-semibold text-paper md:py-3 md:text-base">
                           Pay Securely
                         </a>
                       )}
                       <button
                         onClick={() => onVerify(item.localId, result.job.id)}
                         disabled={Boolean(verifyLoadingMap[item.localId])}
-                        className="rounded-xl bg-mint px-4 py-3 font-semibold text-ink disabled:opacity-50"
+                        className="rounded-xl bg-mint px-4 py-2.5 text-sm font-semibold text-ink disabled:opacity-50 md:py-3 md:text-base"
                       >
                         {verifyLoadingMap[item.localId]
                           ? "Checking payment..."
@@ -1280,21 +1291,21 @@ export default function CustomerUpload() {
           )}
 
           {!!activePrintStatusUploads.length && (
-            <div className="mt-6 space-y-4">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-ink/65">Current Print Jobs</h3>
+            <div className="mt-4 space-y-3 md:mt-6 md:space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/65 md:text-sm">Current Print Jobs</h3>
               {activePrintStatusUploads.map((item) => (
-                <article key={item.localId} className="rounded-2xl border border-ink/10 bg-paper/70 p-4">
+                <article key={item.localId} className="rounded-xl border border-ink/10 bg-paper/70 p-3 md:rounded-2xl md:p-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-ink">{item.fileName}</p>
                       <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(item.result.job.status)}`}>{statusBadgeLabel(item.result.job.status)}</span>
                     </div>
                   </div>
-                  <div className="mt-3 rounded-2xl bg-ink px-4 py-4 text-paper">
-                    <p className="text-xs uppercase tracking-[0.2em] text-paper/70">Queue Token</p>
-                    <p className="mt-1 font-display text-3xl font-bold">{formatQueueTokenDisplay(item.result.job.queue_token, item.result.job.id)}</p>
+                  <div className="mt-3 rounded-xl bg-ink px-3 py-3 text-paper md:rounded-2xl md:px-4 md:py-4">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-paper/70 md:text-xs md:tracking-[0.2em]">Queue Token</p>
+                    <p className="mt-1 font-display text-2xl font-bold md:text-3xl">{formatQueueTokenDisplay(item.result.job.queue_token, item.result.job.id)}</p>
                   </div>
-                  <p className="mt-4 text-ink/75">Job #{item.result.job.id} · {item.result.job.page_count} pages · Rs {item.result.payment.amount}</p>
+                  <p className="mt-3 text-sm text-ink/75 md:mt-4 md:text-base">Job #{item.result.job.id} · {item.result.job.page_count} pages · Rs {item.result.payment.amount}</p>
                   <JobProgressPanel
                     progressPayload={jobProgressMap[item.localId]}
                     fallbackStatus={item.result.job.status}
@@ -1328,26 +1339,26 @@ export default function CustomerUpload() {
 
       {!!historyRows.length && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl border border-ink/15 bg-white/80 p-4 shadow-xl sm:p-6"
+          className="rounded-2xl border border-ink/15 bg-white/80 p-3 shadow-xl sm:p-6 md:rounded-3xl"
         >
-          <h2 className="font-display text-2xl font-semibold">Your History</h2>
+          <h2 className="font-display text-lg font-semibold md:text-2xl">Your History</h2>
           <p className="mt-1 text-xs text-ink/60">Saved per user upload link in your browser cache.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-ink/10 bg-white p-3">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3 lg:grid-cols-4">
+            <div className="rounded-xl border border-ink/10 bg-white p-2.5 sm:rounded-2xl sm:p-3">
               <p className="text-xs text-ink/55">Total Jobs</p>
-              <p className="mt-1 text-xl font-bold text-ink">{historySummary.totalJobs}</p>
+              <p className="mt-0.5 text-lg font-bold text-ink sm:mt-1 sm:text-xl">{historySummary.totalJobs}</p>
             </div>
-            <div className="rounded-2xl border border-ink/10 bg-white p-3">
+            <div className="rounded-xl border border-ink/10 bg-white p-2.5 sm:rounded-2xl sm:p-3">
               <p className="text-xs text-ink/55">Printed Jobs</p>
-              <p className="mt-1 text-xl font-bold text-ink">{historySummary.printedJobs}</p>
+              <p className="mt-0.5 text-lg font-bold text-ink sm:mt-1 sm:text-xl">{historySummary.printedJobs}</p>
             </div>
-            <div className="rounded-2xl border border-ink/10 bg-white p-3">
+            <div className="rounded-xl border border-ink/10 bg-white p-2.5 sm:rounded-2xl sm:p-3">
               <p className="text-xs text-ink/55">Pages Printed</p>
-              <p className="mt-1 text-xl font-bold text-ink">{historySummary.pagesPrinted}</p>
+              <p className="mt-0.5 text-lg font-bold text-ink sm:mt-1 sm:text-xl">{historySummary.pagesPrinted}</p>
             </div>
-            <div className="rounded-2xl border border-ink/10 bg-white p-3">
+            <div className="rounded-xl border border-ink/10 bg-white p-2.5 sm:rounded-2xl sm:p-3">
               <p className="text-xs text-ink/55">Total Spend</p>
-              <p className="mt-1 text-xl font-bold text-ink">Rs {historySummary.totalAmount}</p>
+              <p className="mt-0.5 text-lg font-bold text-ink sm:mt-1 sm:text-xl">Rs {historySummary.totalAmount}</p>
             </div>
           </div>
           <div className="mt-3 text-xs text-ink/65">
@@ -1358,25 +1369,30 @@ export default function CustomerUpload() {
             {historyRows.map((row) => (
               <article key={row.localId} className="rounded-xl border border-ink/10 bg-white p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-mono text-xs text-ink/75">{row.token}</p>
+                  <p className="font-mono text-xs font-semibold text-ink/75">{row.token}</p>
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(row.status)}`}>{statusBadgeLabel(row.status)}</span>
                 </div>
                 <p className="mt-2 truncate text-sm font-semibold text-ink">{row.fileName}</p>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-ink/70">
-                  <p>Mode: {row.colorMode.toUpperCase()}</p>
-                  <p>Pages: {row.printedPages > 0 ? row.printedPages : row.expectedPages}</p>
-                  <p>Copies: {row.copies}</p>
-                  <p>Unit: Rs {row.unitPrice}</p>
+                <div className="mt-2 grid grid-cols-4 gap-1 rounded-lg bg-paper/70 p-2 text-center text-[11px] text-ink/70">
+                  <p><span className="block text-ink/45">Mode</span>{row.colorMode.toUpperCase()}</p>
+                  <p><span className="block text-ink/45">Pages</span>{row.printedPages > 0 ? row.printedPages : row.expectedPages}</p>
+                  <p><span className="block text-ink/45">Copies</span>{row.copies}</p>
+                  <p><span className="block text-ink/45">Unit</span>Rs {row.unitPrice}</p>
                 </div>
-                <p className="mt-2 text-sm font-semibold text-ink">Rs {row.amount}</p>
-                <p className="mt-1 text-[11px] text-ink/55">{row.updatedAt ? new Date(row.updatedAt).toLocaleString() : "-"}</p>
-                <button
-                  type="button"
-                  onClick={() => toggleJobExpanded(row.localId)}
-                  className="mt-3 w-full rounded-lg border border-ink/20 bg-paper px-3 py-2 text-xs font-semibold text-ink"
-                >
-                  {isJobExpanded(row.localId) ? "Hide details" : "Show details"}
-                </button>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">Rs {row.amount}</p>
+                    <p className="text-[11px] text-ink/55">{row.updatedAt ? new Date(row.updatedAt).toLocaleString() : "-"}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleJobExpanded(row.localId)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-ink/20 bg-paper text-base font-bold leading-none text-ink"
+                    aria-label={isJobExpanded(row.localId) ? "Hide job details" : "Show job details"}
+                  >
+                    {isJobExpanded(row.localId) ? "↑" : "↓"}
+                  </button>
+                </div>
                 {isJobExpanded(row.localId) && (
                   <JobProgressPanel
                     progressPayload={jobProgressMap[row.localId]}
